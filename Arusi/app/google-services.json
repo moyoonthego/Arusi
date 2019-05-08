@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "1041023361767",
+    "firebase_url": "https://arusi-b77c7.firebaseio.com",
+    "project_id": "arusi-b77c7",
+    "storage_bucket": "arusi-b77c7.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1041023361767:android:c4043a83ee711464",
+        "android_client_info": {
+          "package_name": "com.moyo.arusi"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1041023361767-jp2086uc6pfm1v6pa0ln3iuu5idph0ro.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.moyo.arusi",
+            "certificate_hash": "639a22f9d77059d0936f5fd7def8e541a0bd3b9b"
+          }
+        },
+        {
+          "client_id": "1041023361767-h9u7d2gqoe31c1aukb9jepog61omlbn2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAV6p8moaVb6hMkf0ajJ-tIOELJ2FqnHtQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1041023361767-h9u7d2gqoe31c1aukb9jepog61omlbn2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
