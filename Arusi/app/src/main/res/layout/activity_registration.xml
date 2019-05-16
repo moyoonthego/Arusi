@@ -4,26 +4,128 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@drawable/backdroploginregister"
+    android:gravity="top|center"
+
+
     tools:context="com.moyo.arusi.RegistrationActivity"
     android:orientation="vertical">
+
+    <ImageView
+        android:id="@+id/imageView"
+        android:layout_width="match_parent"
+        android:layout_height="150dp"
+        android:layout_marginLeft="20dp"
+        android:layout_marginRight="20dp"
+        android:layout_gravity="top"
+        android:elevation="5dp"
+        android:src="@drawable/logo"
+        />
+
+    <ProgressBar
+        android:id="@+id/progress_circular"
+        android:visibility="invisible"
+        android:layout_marginBottom="20dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center"/>
+
     <EditText
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="name"
+        android:hint="Name"
+        android:inputType="textPersonName"
+        android:textColor="#FFF"
+        android:textColorHint="#999"
+        android:layout_centerHorizontal="true"
+        android:backgroundTint="@android:color/white"
         android:id="@+id/name"/>
     <EditText
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="email"
+        android:hint="Email"
+        android:textColor="#FFF"
+        android:inputType="textEmailAddress"
+        android:textColorHint="#999"
+        android:layout_centerHorizontal="true"
+        android:backgroundTint="@android:color/white"
         android:id="@+id/email"/>
     <EditText
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="password"
+        android:hint="Password"
+        android:inputType="textPassword"
+        android:textColor="#FFF"
+        android:textColorHint="#999"
+        android:layout_centerHorizontal="true"
+        android:backgroundTint="@android:color/white"
         android:id="@+id/password"/>
+
+    <RadioGroup
+        android:id="@+id/radioSex"
+        android:layout_width="match_parent"
+        android:orientation="horizontal"
+        android:layout_marginBottom="10dp"
+        android:gravity="center_horizontal"
+        android:layout_height="wrap_content" >
+
+        <RadioButton
+            android:id="@+id/radioMale"
+            android:textColor="#FFF"
+            android:textColorHint="#999"
+            android:layout_width="wrap_content"
+            android:buttonTint="#FFF"
+            android:layout_height="40dp"
+            android:layout_marginRight="50dp"
+            android:scaleX="1.4"
+            android:scaleY="1.4"
+            android:text="Male"
+            android:outlineAmbientShadowColor="#FFF"
+            android:shadowColor="#FFF"
+            android:outlineSpotShadowColor="#FFF"
+            android:layout_gravity="center_horizontal" />
+
+        <RadioButton
+            android:layout_height="40dp"
+            android:textColor="#FFF"
+            android:scaleX="1.4"
+            android:scaleY="1.4"
+            android:buttonTint="#FFF"
+            android:outlineAmbientShadowColor="#FFF"
+            android:shadowColor="#FFF"
+            android:outlineSpotShadowColor="#FFF"
+            android:textColorHint="#999"
+            android:id="@+id/radioFemale"
+            android:layout_gravity="center_horizontal"
+            android:layout_width="wrap_content"
+            android:text="Female" />
+
+    </RadioGroup>
+
     <Button
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:background="#3a43aF"
+        android:textColor="#FFF"
+        android:shadowColor="#FFF"
+        android:layout_marginLeft="10dp"
+        android:layout_marginRight="10dp"
         android:text="Register"
         android:id="@+id/register"/>
+
+    <TextView
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="10dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="-OR-"
+        android:textColor="#FFF"
+        android:gravity="center"
+        />
+    <com.google.android.gms.common.SignInButton
+        android:id="@+id/sign_in_button"
+        android:layout_marginLeft="5dp"
+        android:layout_marginRight="5dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
 </LinearLayout>

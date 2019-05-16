@@ -1,34 +1,77 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
+    android:noHistory="true"
+    android:gravity="center"
     android:layout_height="match_parent"
     tools:context="com.moyo.arusi.LoginActivity"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:background="@drawable/backdroploginregister">
+
+    <ImageView
+        android:id="@+id/imageView"
+        android:layout_width="match_parent"
+        android:layout_height="150dp"
+        android:layout_marginLeft="20dp"
+        android:layout_marginRight="20dp"
+        android:elevation="5dp"
+        android:src="@drawable/logo"
+        />
+
+    <ProgressBar
+        android:id="@+id/progress_circular"
+        android:visibility="invisible"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center"/>
 
     <EditText
         android:id="@+id/email"
+        android:layout_marginTop="100dp"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:textColor="#FFF"
         android:hint="Email"
+        android:inputType="textEmailAddress"
+        android:text=""
+        android:textColorHint="#999"
         android:layout_centerHorizontal="true"
+        android:backgroundTint="@android:color/white"
         />
 
     <EditText
         android:id="@+id/password"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Password"/>
+        android:textColor="#FFF"
+        android:textColorHint="#999"
+        android:text=""
+        android:inputType="textPassword"
+        android:hint="Password"
+        android:backgroundTint="@android:color/white"/>
 
     <Button
         android:id="@+id/login"
         android:layout_width="match_parent"
+        android:background="#3a43aF"
         android:layout_height="wrap_content"
-        android:text="Login" />
-
-    <LinearLayout
+        android:textColor="#FFF"
+        android:shadowColor="#FFF"
+        android:text="     Login" />
+    <TextView
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="10dp"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"></LinearLayout>
+        android:layout_height="wrap_content"
+        android:text="-OR-"
+        android:textColor="#FFF"
+        android:gravity="center"
+        />
+    <com.google.android.gms.common.SignInButton
+        android:id="@+id/sign_in_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
 </LinearLayout>
