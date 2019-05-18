@@ -37,41 +37,33 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.google.android.gms.auth.api.Auth;
+import com.crystal.crystalrangeseekbar.interfaces.OnRangeSeekbarChangeListener;
+import com.crystal.crystalrangeseekbar.widgets.CrystalRangeSeekbar;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInClient;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
-import com.google.android.gms.common.api.ApiException;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.PendingResult;
-import com.google.android.gms.common.api.ResolvableApiException;
-import com.google.android.gms.common.api.ResultCallback;
-import com.google.android.gms.common.api.Status;
-import com.google.android.gms.location.LocationRequest;
-import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.location.LocationSettingsRequest;
-import com.google.android.gms.location.LocationSettingsResponse;
-import com.google.android.gms.location.LocationSettingsResult;
-import com.google.android.gms.location.LocationSettingsStatusCodes;
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
-import org.w3c.dom.Text;
-
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -82,7 +74,7 @@ import pub.devrel.easypermissions.EasyPermissions;
 import static android.app.PendingIntent.getActivity;
 import static android.provider.ContactsContract.CommonDataKinds.Website.URL;
 
-public class QueryActivity extends AppCompatActivity implements LocationListener {
+public class QueryActivity extends AppCompatActivity {
 
     private static final String TAG = "TAG";
     //Needed attributes: Name, Age, Cast (Sect), Location, Marital status, Education, Profession, Nationality, (**CONTACT INFO (Phone number, email address)**)
@@ -91,10 +83,6 @@ public class QueryActivity extends AppCompatActivity implements LocationListener
     private static int REQUEST_LOCATION = 2;
     private String[] galleryPermissions = {Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE};
     private AlphaAnimation buttonClick = new AlphaAnimation(1F, 0.8F);
-
-    public double latitude;
-    public double longitude;
-    public LocationManager locationManager;
     public Criteria criteria;
     public String bestProvider;
 
@@ -105,16 +93,25 @@ public class QueryActivity extends AppCompatActivity implements LocationListener
     private String currentUId;
     private FirebaseUser firebaseUser;
     private DatabaseReference currentUserDb;
+    private DatabaseReference currentUser;
     private Map oldData;
     private Map newData;
-    private Location mylocation;
+
+    private String country;
+    private String state;
+    private String city;
+
+
+    private TextView minage;
+    private TextView maxage;
+    private CrystalRangeSeekbar agebar;
 
     @SuppressLint("MissingPermission")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_information);
+        setContentView(R.layout.activity_query);
 
         // Database setup
         GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -126,15 +123,12 @@ public class QueryActivity extends AppCompatActivity implements LocationListener
         googleSignInClient = GoogleSignIn.getClient(this, gso);
         mAuth = FirebaseAuth.getInstance();
         firebaseUser = mAuth.getCurrentUser();
-        currentUserDb = FirebaseDatabase.getInstance().getReference().child("Users").child(firebaseUser.getUid());
+        currentUserDb = FirebaseDatabase.getInstance().getReference().child("Users").child(firebaseUser.getUid()).child("query");
         newData = new HashMap<>();
-
-        // Setting up location retrieval
-        getLocation();
 
         // Setting up spinners
         // marital status
-        String[] maritalitems = new String[]{"Available", "Widowed", "Divorced", "Separated"};
+        String[] maritalitems = new String[]{"Not specified", "Available", "Widowed", "Divorced", "Separated"};
         final ArrayAdapter<String> maritaladapter = new ArrayAdapter<String>(this,
                 android.R.layout.simple_spinner_dropdown_item, maritalitems);
         final Button maritalstatus = (Button) findViewById(R.id.marital_status);
@@ -150,7 +144,11 @@ public class QueryActivity extends AppCompatActivity implements LocationListener
 
                                 // TODO: user specific action
                                 maritalstatus.setText(maritaladapter.getItem(which));
-                                newData.put("marital", maritaladapter.getItem(which));
+                                if (maritaladapter.getItem(which).equals("Not specified")) {
+                                    newData.put("marital", "");
+                                } else {
+                                    newData.put("marital", maritaladapter.getItem(which));
+                                }
 
                                 dialog.dismiss();
                             }
@@ -159,7 +157,7 @@ public class QueryActivity extends AppCompatActivity implements LocationListener
         });
 
         // education
-        String[] educationitems = new String[]{"College", "University (BSc.)", "University (MSc.)", "University (Phd.)", "Degree", "Self-taught", "Other"};
+        String[] educationitems = new String[]{"Not specified","College", "University (BSc.)", "University (MSc.)", "University (Phd.)", "Degree", "Self-taught", "Other"};
         final ArrayAdapter<String> educationadapter = new ArrayAdapter<String>(this,
                 android.R.layout.simple_spinner_dropdown_item, educationitems);
         final Button education = (Button) findViewById(R.id.education);
@@ -175,7 +173,11 @@ public class QueryActivity extends AppCompatActivity implements LocationListener
 
                                 // TODO: user specific action
                                 education.setText(educationadapter.getItem(which));
-                                newData.put("education", educationadapter.getItem(which));
+                                if (educationadapter.getItem(which).equals("Not specified")) {
+                                    newData.put("education", "");
+                                } else {
+                                    newData.put("education", educationadapter.getItem(which));
+                                }
 
                                 dialog.dismiss();
                             }
@@ -184,7 +186,7 @@ public class QueryActivity extends AppCompatActivity implements LocationListener
         });
 
         // cast status
-        String[] castitems = new String[]{"Shia", "Shia (Syed)", "Sunni", "Sunni (Syed)"};
+        String[] castitems = new String[]{"Not specified", "Shia", "Shia (Syed)", "Sunni", "Sunni (Syed)"};
         final ArrayAdapter<String> castadapter = new ArrayAdapter<String>(this,
                 android.R.layout.simple_spinner_dropdown_item, castitems);
         final Button caststatus = (Button) findViewById(R.id.muslim_cast);
@@ -200,7 +202,11 @@ public class QueryActivity extends AppCompatActivity implements LocationListener
 
                                 // TODO: user specific action
                                 caststatus.setText(castadapter.getItem(which));
-                                newData.put("cast", castadapter.getItem(which));
+                                if (castadapter.getItem(which).equals("Not specified")) {
+                                    newData.put("cast", "");
+                                } else {
+                                    newData.put("cast", castadapter.getItem(which));
+                                }
 
                                 dialog.dismiss();
                             }
@@ -210,107 +216,140 @@ public class QueryActivity extends AppCompatActivity implements LocationListener
 
         // Setting up header
         Typeface myFont = Typeface.createFromAsset(getAssets(), "fonts/productsansbold.ttf");
-        final TextView edittext = (TextView) findViewById(R.id.whoareyou);
+        final TextView edittext = (TextView) findViewById(R.id.edittext);
         edittext.setTypeface(myFont);
 
-        final TextView disclaimer = (TextView) findViewById(R.id.disclaimer);
 
-        Button buttonLoadImage = (Button) findViewById(R.id.buttonLoadPicture);
-        buttonLoadImage.setOnClickListener(new View.OnClickListener() {
-
+        // setting up age
+        agebar = (CrystalRangeSeekbar) findViewById(R.id.ageseekbar);
+        minage = findViewById(R.id.minage);
+        maxage = findViewById(R.id.maxage);
+        maxage.setTypeface(myFont);
+        minage.setTypeface(myFont);
+        agebar.setOnRangeSeekbarChangeListener(new OnRangeSeekbarChangeListener() {
             @Override
-            public void onClick(View v) {
-                v.startAnimation(buttonClick);
-                Intent i = new Intent(
-                        Intent.ACTION_PICK,
-                        android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-
-                startActivityForResult(i, RESULT_LOAD_IMAGE);
+            public void valueChanged(Number minValue, Number maxValue) {
+                minage.setText(String.valueOf(minValue));
+                maxage.setText(String.valueOf(maxValue));
             }
         });
 
 
-        // Setting up image view
-        final ImageView pic = (ImageView) findViewById(R.id.profile_image);
-        final ImageView picview = (ImageView) findViewById(R.id.profileimageview);
-        picview.setImageDrawable(pic.getDrawable());
-        pic.setOnClickListener(new View.OnClickListener() {
+        //setting up location
+        // country first
+        // cast status
+        final ArrayList<String> countryitems =new ArrayList<String>();
+        countryitems.add("No selection");
+        String[] locales = Locale.getISOCountries();
 
-            @Override
-            public void onClick(View v) {
-                picview.setImageDrawable(pic.getDrawable());
-                pic.setVisibility(View.GONE);
-                edittext.setVisibility(View.GONE);
-                picview.setVisibility(View.VISIBLE);
-                picview.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        for (String countryCode : locales) {
+
+            Locale obj = new Locale("", countryCode);
+            countryitems.add(obj.getDisplayCountry());
+        }
+        final ArrayAdapter<String> countryadapter = new ArrayAdapter<String>(this,
+                android.R.layout.simple_spinner_dropdown_item, countryitems);
+        final Button countrystatus = (Button) findViewById(R.id.country);
+        countrystatus.setOnClickListener(new View.OnClickListener() {
+
+            public void onClick(View w) {
+                new AlertDialog.Builder(QueryActivity.this)
+                        .setTitle("Select a desired country...")
+                        .setAdapter(countryadapter, new DialogInterface.OnClickListener() {
+
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+
+                                // TODO: user specific action
+                                countrystatus.setText(countryadapter.getItem(which));
+                                if (countryadapter.getItem(which).equals("No selection")) {
+                                    newData.put("country", "");
+                                } else {
+                                    newData.put("country", countryadapter.getItem(which));
+                                }
+                                country = countryadapter.getItem(which);
+                                dialog.dismiss();
+                            }
+                        }).create().show();
+            }
+        });
+
+//        final Map<String, Object> worldMap = null;
+//
+//        try {
+//            BufferedReader reader = new BufferedReader(new FileReader("C:\\Users\\Moe\\Documents\\GitHub\\Arusi\\Arusi\\app\\src\\main\\assets\\Countries.json"));
+//            String world = reader.readLine();
+//            worldMap = new Gson().fromJson(world, new TypeToken<HashMap<String, Object>>() {}.getType()
+//            );
+//        } catch (FileNotFoundException e) {
+//            e.printStackTrace();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+
+        // state second
+        final ArrayList<String> stateitems =new ArrayList<String>();
+        stateitems.add("No selection");
+        final Button statestatus = (Button) findViewById(R.id.state);
+        statestatus.setOnClickListener(new View.OnClickListener() {
+
+            public void onClick(View w) {
+
+                // UNFINISHED
+                //stateitems.addAll();
+                final ArrayAdapter<String> stateadapter = new ArrayAdapter<String>(QueryActivity.this, android.R.layout.simple_spinner_dropdown_item, stateitems);
+
+                new AlertDialog.Builder(QueryActivity.this)
+                        .setTitle("Select a desired state...")
+                        .setAdapter(stateadapter, new DialogInterface.OnClickListener() {
+
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+
+                                // TODO: user specific action
+                                statestatus.setText(stateadapter.getItem(which));
+                                if (stateadapter.getItem(which).equals("No selection")) {
+                                    newData.put("state", "");
+                                } else {
+                                    newData.put("state", stateadapter.getItem(which));
+                                }
+                                state = stateadapter.getItem(which);
+                                dialog.dismiss();
+                            }
+                        }).create().show();
             }
         });
 
 
-        picview.setOnClickListener(new View.OnClickListener() {
 
-            @Override
-            public void onClick(View v) {
-                picview.setAdjustViewBounds(true);
-                picview.setVisibility(View.GONE);
-                edittext.setVisibility(View.VISIBLE);
-                pic.setVisibility(View.VISIBLE);
-            }
-        });
 
         // Setting up saved data
         currentUserDb.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
-                for (DataSnapshot postSnapshot : dataSnapshot.getChildren()) {
-                    if (!(String.valueOf(postSnapshot.getValue()).equals(""))) {
-                        if (postSnapshot.getKey().equals("marital")) {
-                            maritalstatus.setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("education")) {
-                            education.setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("lastname")) {
-                            ((EditText) findViewById(R.id.lName)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("age")) {
-                            ((EditText) findViewById(R.id.age)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("profession")) {
-                            ((EditText) findViewById(R.id.profession)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("phone")) {
-                            ((EditText) findViewById(R.id.phone)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("contactemail")) {
-                            ((EditText) findViewById(R.id.contactemail)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("nationality")) {
-                            ((EditText) findViewById(R.id.nationality)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("location")) {
-                            ((Button) findViewById(R.id.location)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("weight")) {
-                            ((EditText) findViewById(R.id.weight)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("height")) {
-                            ((EditText) findViewById(R.id.height)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("mothertongue")) {
-                            ((EditText) findViewById(R.id.mothertongue)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("complexion")) {
-                            ((EditText) findViewById(R.id.complexion)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("familyinfo")) {
-                            ((EditText) findViewById(R.id.familyinfo)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("cast")) {
-                            caststatus.setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("name")) {
-                            ((EditText) findViewById(R.id.fName)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("gender")) {
-                            if (String.valueOf(postSnapshot.getValue()).equals("Female")) {
-                                disclaimer.setVisibility(View.VISIBLE);
-                            }
-                        } else if (postSnapshot.getKey().equals("photo")) {
-                            if (!EasyPermissions.hasPermissions(QueryActivity.this, galleryPermissions)) {
-                                EasyPermissions.requestPermissions(QueryActivity.this, "Storage access required. Try again.",
-                                        101, galleryPermissions);
-                            } else {
-                                pic.setImageBitmap(BitmapFactory.decodeFile(String.valueOf(postSnapshot.getValue())));
-                                picview.setImageBitmap(BitmapFactory.decodeFile(String.valueOf(postSnapshot.getValue())));
+                        for (DataSnapshot querySnapshot : dataSnapshot.getChildren()) {
+                            if (!(String.valueOf(querySnapshot.getValue()).equals(""))) {
+                                if (querySnapshot.getKey().equals("marital")) {
+                                    maritalstatus.setText(String.valueOf(querySnapshot.getValue()));
+                                } else if (querySnapshot.getKey().equals("education")) {
+                                    education.setText(String.valueOf(querySnapshot.getValue()));
+                                } else if (querySnapshot.getKey().equals("country")) {
+                                    countrystatus.setText(String.valueOf(querySnapshot.getValue()));
+                                } else if (querySnapshot.getKey().equals("cast")) {
+                                    caststatus.setText(String.valueOf(querySnapshot.getValue()));
+                                } else if (querySnapshot.getKey().equals("minage")) {
+                                    minage.setText(String.valueOf(querySnapshot.getValue()));
+                                    Toast.makeText(QueryActivity.this, String.valueOf(agebar.getSelectedMinValue()), Toast.LENGTH_SHORT).show();
+                                } else if (querySnapshot.getKey().equals("maxage")) {
+                                    maxage.setText(String.valueOf(querySnapshot.getValue()));
+                                    agebar.setMaxStartValue(Integer.valueOf(String.valueOf(querySnapshot.getValue())));
+                                } else if (querySnapshot.getKey().equals("profession")) {
+                                    ((EditText) findViewById(R.id.profession)).setText(String.valueOf(querySnapshot.getValue()));
+                                } else if (querySnapshot.getKey().equals("nationality")) {
+                                    ((EditText) findViewById(R.id.nationality)).setText(String.valueOf(querySnapshot.getValue()));
+                                }
                             }
                         }
-                    }
-                }
             }
 
             @Override
@@ -319,56 +358,6 @@ public class QueryActivity extends AppCompatActivity implements LocationListener
                 Log.e(TAG, "Failed to read app title value.", error.toException());
             }
         });
-
-    }
-
-    @SuppressLint("MissingPermission")
-    protected void getLocation() {
-        if (isLocationEnabled(QueryActivity.this)) {
-            Log.d(TAG, "Location check passed");
-            locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
-            criteria = new Criteria();
-            bestProvider = String.valueOf(locationManager.getBestProvider(criteria, true)).toString();
-
-            //You can still do this if you like, you might get lucky:
-            @SuppressLint("MissingPermission") Location location = locationManager.getLastKnownLocation(bestProvider);
-            if (location != null) {
-                Log.e("TAG", "GPS is on");
-                latitude = location.getLatitude();
-                longitude = location.getLongitude();
-            } else {
-                //This is what you need:
-                locationManager.requestLocationUpdates(bestProvider, 1000, 0, this);
-            }
-        } else {
-            // PROMPT FOR LOCATION SERVICES TO BE ENABLED
-            new AlertDialog.Builder(this)
-                    .setTitle("Enable Arusi Location Permissions")
-                    .setMessage("Arusi requires location services to run. Please enable these to continue setting up your profile.")
-
-                    // Specifying a listener allows you to take an action before dismissing the dialog.
-                    // The dialog is automatically dismissed when a dialog button is clicked.
-                    .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
-                        public void onClick(DialogInterface dialog, int which) {
-                            // IDEA Make a dialogue box before doing this intent that tells them to enable location permissions
-                            Toast.makeText(QueryActivity.this, "Your GPS services are disabled. Please turn them on.", Toast.LENGTH_SHORT).show();
-                            Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()));
-                            intent.addCategory(Intent.CATEGORY_DEFAULT);
-                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // Fix this page redirect
-                            startActivity(intent);
-                            finish();
-
-                        }
-                    })
-                    .setIcon(android.R.drawable.ic_dialog_alert)
-                    .show();
-        }
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        locationManager.removeUpdates(this);
 
     }
 
@@ -383,62 +372,21 @@ public class QueryActivity extends AppCompatActivity implements LocationListener
         }
     }
 
-    public void findLocation(View view) {
-        view.startAnimation(buttonClick);
-        Geocoder geocoder;
-        List<Address> addresses;
-        geocoder = new Geocoder(this, Locale.getDefault());
-
-        try {
-            addresses = geocoder.getFromLocation(latitude, longitude, 1);
-            String city = addresses.get(0).getLocality();
-            String state = addresses.get(0).getAdminArea();
-            String country = addresses.get(0).getCountryName();
-            newData.put("city", city);
-            newData.put("state", state);
-            newData.put("country", country);
-            ((Button) findViewById(R.id.location)).setText(city+", "+state+", "+country);
-            currentUserDb.updateChildren(newData);
-        } catch (IOException e) {
-            e.printStackTrace();
-            Toast.makeText(QueryActivity.this, "Error retrieving location", Toast.LENGTH_SHORT).show();
-            return;
-        }
-    }
-
     public void goToMain(View view) {
         view.startAnimation(buttonClick);
         // Change MainActivity to "Settings"
-        newData.put("name", String.valueOf(((EditText) findViewById(R.id.fName)).getText()));
-        newData.put("lastname", String.valueOf(((EditText) findViewById(R.id.lName)).getText()));
-        newData.put("age", String.valueOf(((EditText) findViewById(R.id.age)).getText()));
+        //newData.put("age", String.valueOf(((SlideBar) findViewById(R.id.age)).getText()));
         newData.put("profession", String.valueOf(((EditText) findViewById(R.id.profession)).getText()));
-        newData.put("phone", String.valueOf(((EditText) findViewById(R.id.phone)).getText()));
-        newData.put("contactemail", String.valueOf(((EditText) findViewById(R.id.contactemail)).getText()));
         newData.put("nationality", String.valueOf(((EditText) findViewById(R.id.nationality)).getText()));
-        newData.put("location", String.valueOf(((Button) findViewById(R.id.location)).getText()));
-        newData.put("weight", String.valueOf(((EditText) findViewById(R.id.weight)).getText()));
-        newData.put("height", String.valueOf(((EditText) findViewById(R.id.height)).getText()));
-        newData.put("mothertongue", String.valueOf(((EditText) findViewById(R.id.mothertongue)).getText()));
-        newData.put("complexion", String.valueOf(((EditText) findViewById(R.id.complexion)).getText()));
-        newData.put("familyinfo", String.valueOf(((EditText) findViewById(R.id.familyinfo)).getText()));
+        newData.put("minage", Integer.valueOf(String.valueOf(minage.getText())));
+        newData.put("maxage", Integer.valueOf(String.valueOf(maxage.getText())));
         currentUserDb.updateChildren(newData);
-        if (newData.get("name").equals("") || newData.get("lastname").equals("") || newData.get("age").equals("")
-                || newData.get("profession").equals("") || newData.get("phone").equals("") || newData.get("contactemail").equals("")
-                || newData.get("nationality").equals("") || newData.get("location").equals("Location")
-                || String.valueOf(((Button) findViewById(R.id.marital_status)).getText()).equals("Marital Status")
-                || String.valueOf(((Button) findViewById(R.id.muslim_cast)).getText()).equals("Cast")
-                || String.valueOf(((Button) findViewById(R.id.education)).getText()).equals("Education")
-        ) {
-
-            Toast.makeText(QueryActivity.this, "Required info not filled in!",
-                    Toast.LENGTH_SHORT).show();
-            return;
-        }
-
         Intent intent = new Intent(QueryActivity.this, MainActivity.class);
         startActivity(intent);
         finish();
+    }
+
+    private void fillCountries() {
     }
 
     @Override
@@ -472,30 +420,5 @@ public class QueryActivity extends AppCompatActivity implements LocationListener
             }
         }
 
-    }
-
-
-    @Override
-    public void onLocationChanged(Location location) {
-        mylocation = location;
-        //remove location callback:
-        locationManager.removeUpdates(this);
-        latitude = location.getLatitude();
-        longitude = location.getLongitude();
-    }
-
-    @Override
-    public void onStatusChanged(String s, int i, Bundle bundle) {
-
-    }
-
-    @Override
-    public void onProviderEnabled(String s) {
-
-    }
-
-    @Override
-    public void onProviderDisabled(String s) {
-        Toast.makeText(QueryActivity.this, "Please Enable GPS and Internet", Toast.LENGTH_SHORT).show();
     }
 }

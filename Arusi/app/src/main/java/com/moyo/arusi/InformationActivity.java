@@ -9,6 +9,7 @@ import android.content.IntentSender;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.graphics.Typeface;
 import android.location.Address;
 import android.location.Criteria;
@@ -441,9 +442,9 @@ public class InformationActivity extends AppCompatActivity implements LocationLi
             if (previousActivity.equals("Welcome")) {
                 Intent intent = new Intent(InformationActivity.this, QueryActivity.class);
                 startActivity(intent);
-                finish();
             }
         } catch (NullPointerException e) {
+            Log.e(TAG, "null pointer found when tried to move from welcome");
 
         }
 

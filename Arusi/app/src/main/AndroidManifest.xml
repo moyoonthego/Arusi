@@ -17,8 +17,14 @@
         android:roundIcon="@drawable/appicon"
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
-        tools:ignore="GoogleAppIndexingWarning">
-        <activity android:name=".QueryActivity"></activity>
+        tools:ignore="GoogleAppIndexingWarning"
+        tools:replace="android:label">
+        <activity
+            android:name=".YourMatchActivity"
+            android:label="@string/title_activity_your_match"
+            android:exported="true"
+            android:theme="@style/AppTheme.NoActionBar"></activity>
+        <activity android:name=".QueryActivity" />
         <activity
             android:name=".InformationActivity"
             android:label="@string/title_activity_information"

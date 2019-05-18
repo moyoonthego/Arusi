@@ -2,6 +2,7 @@ package com.moyo.arusi;
 
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Typeface;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -9,6 +10,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
@@ -36,6 +38,8 @@ public class MainActivity extends AppCompatActivity {
     private String currentUId;
 
     private DatabaseReference usersDb;
+    private DatabaseReference currentUserDb;
+    private FirebaseUser firebaseUser;
 
 
     ListView listView;
@@ -60,8 +64,33 @@ public class MainActivity extends AppCompatActivity {
             Intent intent = new Intent(MainActivity.this, LoginOrRegister.class);
             startActivity(intent);
             finish();
+        } else {
+            setupDesktop();
         }
 
+    }
+
+    private void setupDesktop() {
+        firebaseUser = mAuth.getCurrentUser();
+        currentUserDb = FirebaseDatabase.getInstance().getReference().child("Users").child(firebaseUser.getUid());
+        Typeface myFont = Typeface.createFromAsset(getAssets(), "fonts/productsansbold.ttf");
+        final TextView edittext = (TextView) findViewById(R.id.welcomer);
+        edittext.setTypeface(myFont);
+        // Setting up saved data
+        currentUserDb.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                edittext.setText("Salaam, "+dataSnapshot.child("name").getValue()+"...");
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                // Failed to read value
+                Log.e("TAG", "Failed to read app title value.", error.toException());
+            }
+        });
+
+        // Continued...
     }
 
     private void isConnectionMatch(String userId) {
