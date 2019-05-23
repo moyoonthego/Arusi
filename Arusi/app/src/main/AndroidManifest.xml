@@ -20,10 +20,14 @@
         tools:ignore="GoogleAppIndexingWarning"
         tools:replace="android:label">
         <activity
-            android:name=".YourMatchActivity"
-            android:label="@string/title_activity_your_match"
-            android:exported="true"
+            android:name=".MatchboxActivity"
+            android:label="@string/title_activity_matchbox"
             android:theme="@style/AppTheme.NoActionBar"></activity>
+        <activity
+            android:name=".YourMatchActivity"
+            android:exported="true"
+            android:label="@string/title_activity_your_match"
+            android:theme="@style/AppTheme.NoActionBar" />
         <activity android:name=".QueryActivity" />
         <activity
             android:name=".InformationActivity"

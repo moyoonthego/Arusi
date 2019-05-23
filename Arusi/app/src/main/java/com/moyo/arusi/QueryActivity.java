@@ -339,7 +339,6 @@ public class QueryActivity extends AppCompatActivity {
                                     caststatus.setText(String.valueOf(querySnapshot.getValue()));
                                 } else if (querySnapshot.getKey().equals("minage")) {
                                     minage.setText(String.valueOf(querySnapshot.getValue()));
-                                    Toast.makeText(QueryActivity.this, String.valueOf(agebar.getSelectedMinValue()), Toast.LENGTH_SHORT).show();
                                 } else if (querySnapshot.getKey().equals("maxage")) {
                                     maxage.setText(String.valueOf(querySnapshot.getValue()));
                                     agebar.setMaxStartValue(Integer.valueOf(String.valueOf(querySnapshot.getValue())));

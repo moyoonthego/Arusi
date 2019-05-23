@@ -99,4 +99,5 @@
         <item>Divorced</item>
     </string-array>
     <string name="title_activity_your_match">YourMatchActivity</string>
+    <string name="title_activity_matchbox">MatchboxActivity</string>
 </resources>

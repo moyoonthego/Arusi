@@ -108,6 +108,7 @@ public class InformationActivity extends AppCompatActivity implements LocationLi
     private Map oldData;
     private Map newData;
     private Location mylocation;
+    private ValueEventListener checking;
 
     @SuppressLint("MissingPermission")
     @Override
@@ -238,11 +239,11 @@ public class InformationActivity extends AppCompatActivity implements LocationLi
 
             @Override
             public void onClick(View v) {
-                    picview.setImageDrawable(pic.getDrawable());
-                    pic.setVisibility(View.GONE);
-                    edittext.setVisibility(View.GONE);
-                    picview.setVisibility(View.VISIBLE);
-                    picview.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                picview.setImageDrawable(pic.getDrawable());
+                pic.setVisibility(View.GONE);
+                edittext.setVisibility(View.GONE);
+                picview.setVisibility(View.VISIBLE);
+                picview.setScaleType(ImageView.ScaleType.FIT_CENTER);
             }
         });
 
@@ -258,8 +259,7 @@ public class InformationActivity extends AppCompatActivity implements LocationLi
             }
         });
 
-        // Setting up saved data
-        currentUserDb.addValueEventListener(new ValueEventListener() {
+        checking = new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
                 for (DataSnapshot postSnapshot : dataSnapshot.getChildren()) {
@@ -318,7 +318,10 @@ public class InformationActivity extends AppCompatActivity implements LocationLi
                 // Failed to read value
                 Log.e(TAG, "Failed to read app title value.", error.toException());
             }
-        });
+        };
+
+        // Setting up saved data
+        currentUserDb.addValueEventListener(checking);
 
     }
 
@@ -369,6 +372,7 @@ public class InformationActivity extends AppCompatActivity implements LocationLi
     protected void onPause() {
         super.onPause();
         locationManager.removeUpdates(this);
+        currentUserDb.removeEventListener(checking);
 
     }
 
@@ -422,6 +426,7 @@ public class InformationActivity extends AppCompatActivity implements LocationLi
         newData.put("mothertongue", String.valueOf(((EditText) findViewById(R.id.mothertongue)).getText()));
         newData.put("complexion", String.valueOf(((EditText) findViewById(R.id.complexion)).getText()));
         newData.put("familyinfo", String.valueOf(((EditText) findViewById(R.id.familyinfo)).getText()));
+        currentUserDb.removeEventListener(checking);
         currentUserDb.updateChildren(newData);
         if (newData.get("name").equals("") || newData.get("lastname").equals("") || newData.get("age").equals("")
         || newData.get("profession").equals("") || newData.get("phone").equals("") || newData.get("contactemail").equals("")

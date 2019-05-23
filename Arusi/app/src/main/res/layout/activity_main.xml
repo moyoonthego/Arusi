@@ -8,6 +8,40 @@
     tools:context="com.moyo.arusi.MainActivity"
     android:orientation="vertical">
 
+    <ImageView
+        android:id="@+id/mypic"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:src="@drawable/startsearching"/>
+
+    <Button
+        android:id="@+id/buttonSearch"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="15dp"
+        android:layout_alignParentLeft="true"
+        android:layout_marginTop="160dp"
+        android:layout_alignParentTop="true"
+        android:background="@drawable/background_button1"
+        android:text="Start Searching   "
+        android:textColor="#fff"
+        android:layout_marginBottom="20dp"
+        android:drawableRight="@drawable/rocket"
+        android:onClick="startSearch"
+        android:layout_gravity="center"
+        />
+
+    <de.hdodenhof.circleimageview.CircleImageView
+        android:id="@+id/profile_image"
+        android:layout_width="156dp"
+        android:layout_height="156dp"
+        android:src="@drawable/appicon1"
+        app:civ_border_width="3dp"
+        android:layout_centerInParent="true"
+        android:visibility="gone"
+        app:civ_border_color="#FFF"/>
+
     <TextView
         android:visibility="visible"
         android:id="@+id/welcomer"
@@ -24,39 +58,49 @@
         android:gravity="left"
         />
 
-    <Button
+    <ImageButton
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Profile"
+        android:src="@drawable/exit"
+        android:background="@android:color/transparent"
         android:layout_marginRight="10dp"
         android:layout_alignParentTop="true"
-        android:layout_alignParentRight="true"
-        android:onClick="goToProfile"/>
-
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
-        android:layout_marginRight="10dp"
-        android:layout_marginTop="60dp"
         android:layout_alignParentRight="true"
         android:onClick="logoutUser"
         android:text="SignOut" />
 
-    <Button
+    <ImageButton
         android:layout_width="wrap_content"
+        android:src="@drawable/user"
+        android:background="@android:color/transparent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:text="Profile"
+        android:layout_marginRight="10dp"
+        android:layout_marginTop="80dp"
+        android:layout_alignParentRight="true"
+        android:onClick="goToProfile"/>
+
+
+    <ImageButton
+        android:layout_width="wrap_content"
+        android:src="@drawable/heartbox"
+        android:background="@android:color/transparent"
         android:layout_height="wrap_content"
         android:layout_marginLeft="10dp"
         android:layout_marginBottom="10dp"
+        android:onClick="goToMatchbox"
         android:text="Matchbox"
         android:layout_alignParentLeft="true"
         android:layout_alignParentBottom="true"
         />
 
-    <Button
+    <ImageButton
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginRight="10dp"
+        android:src="@drawable/inspection"
+        android:background="@android:color/transparent"
         android:layout_marginBottom="10dp"
         android:layout_alignParentRight="true"
         android:layout_alignParentBottom="true"
