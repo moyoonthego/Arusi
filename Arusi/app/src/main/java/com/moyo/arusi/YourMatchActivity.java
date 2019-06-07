@@ -9,6 +9,7 @@ import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.renderscript.Sampler;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AlertDialog;
@@ -25,6 +26,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.firebase.ui.storage.images.FirebaseImageLoader;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInClient;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
@@ -35,7 +37,10 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import pub.devrel.easypermissions.EasyPermissions;
@@ -49,11 +54,12 @@ public class YourMatchActivity extends AppCompatActivity {
     private GoogleSignInClient googleSignInClient;
     private String currentUId;
     private FirebaseUser firebaseUser;
-    private DatabaseReference currentUserDb;
-    private Map oldData;
-    private Map newData;
+    private DatabaseReference currentUserMatch;
+    private static Map oldData;
+    private static Map newdata = new HashMap();
     private DatabaseReference matchDb = null;
     private DatabaseReference currentUser = null;
+    private FirebaseStorage storage;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -73,127 +79,7 @@ public class YourMatchActivity extends AppCompatActivity {
         mAuth = FirebaseAuth.getInstance();
         firebaseUser = mAuth.getCurrentUser();
         currentUser = FirebaseDatabase.getInstance().getReference().child("Users").child(firebaseUser.getUid());
-        currentUserDb = FirebaseDatabase.getInstance().getReference().child("Users").child(firebaseUser.getUid()).child("match");
-
-        // Setting up saved data
-        currentUserDb.addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                    matchDb = FirebaseDatabase.getInstance().getReference().child("Users").child(String.valueOf(dataSnapshot.getValue()));
-            }
-
-            @Override
-            public void onCancelled(DatabaseError error) {
-                // Failed to read value
-                Log.e("TAG", "Failed to read app title value.", error.toException());
-            }
-        });
-
-        // Setting up saved data
-        matchDb.addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                for (DataSnapshot postSnapshot : dataSnapshot.getChildren()) {
-                    if (!(String.valueOf(postSnapshot.getValue()).equals(""))) {
-                        if (postSnapshot.getKey().equals("marital")) {
-                            ((Button) findViewById(R.id.marital_status)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("education")) {
-                            ((Button) findViewById(R.id.education)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("lastname")) {
-                            ((EditText) findViewById(R.id.lName)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("age")) {
-                            ((EditText) findViewById(R.id.age)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("profession")) {
-                            ((EditText) findViewById(R.id.profession)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("nationality")) {
-                            ((EditText) findViewById(R.id.nationality)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("location")) {
-                            ((Button) findViewById(R.id.location)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("weight")) {
-                            ((EditText) findViewById(R.id.weight)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("height")) {
-                            ((EditText) findViewById(R.id.height)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("mothertongue")) {
-                            ((EditText) findViewById(R.id.mothertongue)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("complexion")) {
-                            ((EditText) findViewById(R.id.complexion)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("familyinfo")) {
-                            ((EditText) findViewById(R.id.familyinfo)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("cast")) {
-                            ((Button) findViewById(R.id.muslim_cast)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("name")) {
-                            ((EditText) findViewById(R.id.fName)).setText(String.valueOf(postSnapshot.getValue()));
-                        } else if (postSnapshot.getKey().equals("photo")) {
-                                // UNFINISHED!!!!!!!!!!!!!
-                        }
-                    }
-                }
-            }
-
-            @Override
-            public void onCancelled(DatabaseError error) {
-                // Failed to read value
-                Log.e("TAG", "Failed to read app title value.", error.toException());
-            }
-        });
-
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.yes);
-        fab.startAnimation(comein);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View view) {
-                Animation hyperspaceJumpAnimation = AnimationUtils.loadAnimation(YourMatchActivity.this, R.anim.fab_jump_to_down);
-                view.startAnimation(hyperspaceJumpAnimation);
-                new AlertDialog.Builder(YourMatchActivity.this)
-                        .setTitle("Interest recieved! Waiting on feedback!")
-                        .setMessage("Arusi will add the proposal (with personal info) to your matchbox when mutual interest has been achieved.")
-
-                        // Specifying a listener allows you to take an action before dismissing the dialog.
-                        // The dialog is automatically dismissed when a dialog button is clicked.
-                        .setIcon(android.R.drawable.star_big_on)
-                        // The dialog is automatically dismissed when a dialog button is clicked.
-                        .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
-                            public void onClick(DialogInterface dialog, int which) {
-
-                                Intent intent = new Intent(YourMatchActivity.this, MainActivity.class);
-                                startActivity(intent);
-                                finish();
-
-                            }
-                        })
-                        .show();
-            }
-        });
-
-
-        FloatingActionButton fab1 = (FloatingActionButton) findViewById(R.id.no);
-        fab1.startAnimation(comein);
-        fab1.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View view) {
-                Animation hyperspaceJumpAnimation = AnimationUtils.loadAnimation(YourMatchActivity.this, R.anim.fab_jump_to_down);
-                view.startAnimation(hyperspaceJumpAnimation);
-                new AlertDialog.Builder(YourMatchActivity.this)
-                        .setTitle("Match removed")
-                        .setMessage("Arusi has removed this proposal from your inbox. Inshallah, we shall search again.")
-
-                        // Specifying a listener allows you to take an action before dismissing the dialog.
-                        // The dialog is automatically dismissed when a dialog button is clicked.
-                        .setIcon(android.R.drawable.ic_delete)
-                        // The dialog is automatically dismissed when a dialog button is clicked.
-                        .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
-                            public void onClick(DialogInterface dialog, int which) {
-                                // removing match
-                                newData.put("match", "");
-                                currentUser.updateChildren(newData);
-                                Intent intent = new Intent(YourMatchActivity.this, MainActivity.class);
-                                startActivity(intent);
-                                finish();
-
-                            }
-                        })
-                        .show();
-            }
-        });
-
+        currentUserMatch = FirebaseDatabase.getInstance().getReference().child("Users").child(firebaseUser.getUid()).child("match");
 
         // Setting up image view
         // Setting up header
@@ -224,6 +110,137 @@ public class YourMatchActivity extends AppCompatActivity {
                 picview.setVisibility(View.GONE);
                 ((TextView) findViewById(R.id.whoareyou)).setVisibility(View.VISIBLE);
                 pic.setVisibility(View.VISIBLE);
+            }
+        });
+
+        storage = FirebaseStorage.getInstance();
+
+        // Setting up saved data
+        final ValueEventListener matchinfo = new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                for (DataSnapshot postSnapshot : dataSnapshot.getChildren()) {
+                    if (!(String.valueOf(postSnapshot.getValue()).equals(""))) {
+                        if (postSnapshot.getKey().equals("marital")) {
+                            ((Button) findViewById(R.id.marital_status)).setText(String.valueOf(postSnapshot.getValue()));
+                        } else if (postSnapshot.getKey().equals("education")) {
+                            ((Button) findViewById(R.id.education)).setText(String.valueOf(postSnapshot.getValue()));
+                        } else if (postSnapshot.getKey().equals("lastname")) {
+                            ((TextView) findViewById(R.id.lName)).setText(String.valueOf(postSnapshot.getValue()));
+                        } else if (postSnapshot.getKey().equals("age")) {
+                            ((TextView) findViewById(R.id.age)).setText(String.valueOf(postSnapshot.getValue()));
+                        } else if (postSnapshot.getKey().equals("profession")) {
+                            ((TextView) findViewById(R.id.profession)).setText(String.valueOf(postSnapshot.getValue()));
+                        } else if (postSnapshot.getKey().equals("nationality")) {
+                            ((TextView) findViewById(R.id.nationality)).setText(String.valueOf(postSnapshot.getValue()));
+                        } else if (postSnapshot.getKey().equals("location")) {
+                            ((Button) findViewById(R.id.location)).setText(String.valueOf(postSnapshot.getValue()));
+                        } else if (postSnapshot.getKey().equals("weight")) {
+                            ((TextView) findViewById(R.id.weight)).setText(String.valueOf(postSnapshot.getValue()));
+                        } else if (postSnapshot.getKey().equals("height")) {
+                            ((TextView) findViewById(R.id.height)).setText(String.valueOf(postSnapshot.getValue()));
+                        } else if (postSnapshot.getKey().equals("mothertongue")) {
+                            ((TextView) findViewById(R.id.mothertongue)).setText(String.valueOf(postSnapshot.getValue()));
+                        } else if (postSnapshot.getKey().equals("complexion")) {
+                            ((TextView) findViewById(R.id.complexion)).setText(String.valueOf(postSnapshot.getValue()));
+                        } else if (postSnapshot.getKey().equals("familyinfo")) {
+                            ((TextView) findViewById(R.id.familyinfo)).setText(String.valueOf(postSnapshot.getValue()));
+                        } else if (postSnapshot.getKey().equals("cast")) {
+                            ((Button) findViewById(R.id.muslim_cast)).setText(String.valueOf(postSnapshot.getValue()));
+                        } else if (postSnapshot.getKey().equals("name")) {
+                            ((TextView) findViewById(R.id.fName)).setText(String.valueOf(postSnapshot.getValue()));
+                        } else if (postSnapshot.getKey().equals("photo")) {
+                            StorageReference curitem = storage.getReference().child("Users").child(String.valueOf(postSnapshot.getValue()));
+                            GlideApp.with(YourMatchActivity.this).load(curitem).into(pic);
+                            GlideApp.with(YourMatchActivity.this).load(curitem).into(picview);
+                        }
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                // Failed to read value
+                Log.e("TAG", "Failed to read app title value.", error.toException());
+            }
+        };
+
+        // Setting up saved data
+        currentUserMatch.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                    matchDb = FirebaseDatabase.getInstance().getReference().child("Users").child(String.valueOf(dataSnapshot.getValue()));
+                    matchDb.addValueEventListener(matchinfo);
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                // Failed to read value
+                Log.e("TAG", "Failed to read app title value.", error.toException());
+            }
+        });
+
+        // setting up buttons
+        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.yes);
+        fab.startAnimation(comein);
+        fab.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View view) {
+                Animation hyperspaceJumpAnimation = AnimationUtils.loadAnimation(YourMatchActivity.this, R.anim.fab_jump_to_down);
+                view.startAnimation(hyperspaceJumpAnimation);
+                new AlertDialog.Builder(YourMatchActivity.this)
+                        .setTitle("Interest recieved! Waiting on feedback!")
+                        .setMessage("Arusi will add the proposal (with personal info) to your matchbox when mutual interest has been achieved.")
+
+                        // Specifying a listener allows you to take an action before dismissing the dialog.
+                        // The dialog is automatically dismissed when a dialog button is clicked.
+                        .setIcon(android.R.drawable.star_big_on)
+                        // The dialog is automatically dismissed when a dialog button is clicked.
+                        .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int which) {
+                                // removing match
+                                newdata.put("searching", "false");
+                                newdata.put("found", "false");
+                                currentUser.updateChildren(newdata);
+                                matchDb.removeEventListener(matchinfo);
+                                Intent intent = new Intent(YourMatchActivity.this, MainActivity.class);
+                                startActivity(intent);
+                                finish();
+
+                            }
+                        })
+                        .show();
+            }
+        });
+
+
+        FloatingActionButton fab1 = (FloatingActionButton) findViewById(R.id.no);
+        fab1.startAnimation(comein);
+        fab1.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View view) {
+                Animation hyperspaceJumpAnimation = AnimationUtils.loadAnimation(YourMatchActivity.this, R.anim.fab_jump_to_down);
+                view.startAnimation(hyperspaceJumpAnimation);
+                new AlertDialog.Builder(YourMatchActivity.this)
+                        .setTitle("Match removed")
+                        .setMessage("Arusi has removed this proposal from your inbox. Inshallah, we shall search again.")
+
+                        // Specifying a listener allows you to take an action before dismissing the dialog.
+                        // The dialog is automatically dismissed when a dialog button is clicked.
+                        .setIcon(android.R.drawable.ic_delete)
+                        // The dialog is automatically dismissed when a dialog button is clicked.
+                        .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int which) {
+                                // removing match
+                                newdata.put("searching", "false");
+                                newdata.put("found", "false");
+                                currentUser.updateChildren(newdata);
+                                matchDb.removeEventListener(matchinfo);
+                                Intent intent = new Intent(YourMatchActivity.this, MainActivity.class);
+                                startActivity(intent);
+                                finish();
+
+                            }
+                        })
+                        .show();
             }
         });
 

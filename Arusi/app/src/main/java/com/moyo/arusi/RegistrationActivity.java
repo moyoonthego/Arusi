@@ -71,17 +71,6 @@ public class RegistrationActivity extends AppCompatActivity implements GoogleApi
 
         progressBar = findViewById(R.id.progress_circular);
         mAuth = FirebaseAuth.getInstance();
-        firebaseAuthStateListener = new FirebaseAuth.AuthStateListener() {
-            @Override
-            public void onAuthStateChanged(@NonNull FirebaseAuth firebaseAuth) {
-                final FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-                if (user !=null){
-                    Intent intent = new Intent(RegistrationActivity.this, Welcome.class);
-                    startActivity(intent);
-                    finish();
-                }
-            }
-        };
 
         googleSignInButton = findViewById(R.id.sign_in_button);
         GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -98,6 +87,18 @@ public class RegistrationActivity extends AppCompatActivity implements GoogleApi
         mEmail = findViewById(R.id.email);
         mPassword = findViewById(R.id.password);
         mName = findViewById(R.id.name);
+
+        firebaseAuthStateListener = new FirebaseAuth.AuthStateListener() {
+            @Override
+            public void onAuthStateChanged(@NonNull FirebaseAuth firebaseAuth) {
+                mAuth = FirebaseAuth.getInstance();
+                if (mAuth.getUid() != null){
+                    Intent intent = new Intent(RegistrationActivity.this, Welcome.class);
+                    startActivity(intent);
+                    finish();
+                }
+            }
+        };
 
         mRegister.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -267,6 +268,7 @@ public class RegistrationActivity extends AppCompatActivity implements GoogleApi
     {
         Intent intent = new Intent(this,LoginOrRegister.class);
         startActivity(intent);
+        finish();
     }
 
     @Override

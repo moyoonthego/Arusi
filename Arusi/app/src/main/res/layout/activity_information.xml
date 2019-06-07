@@ -40,6 +40,13 @@
         android:layout_height="match_parent"
         android:src="@drawable/ic_arrow_forward_black_24dp"/>
 
+    <ProgressBar
+        android:id="@+id/progress_circular1"
+        android:visibility="gone"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center"/>
+
     <TextView
         android:visibility="invisible"
         android:id="@+id/disclaimer"

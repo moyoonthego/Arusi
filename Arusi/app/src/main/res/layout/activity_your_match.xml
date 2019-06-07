@@ -132,6 +132,20 @@
 
                 </LinearLayout>
 
+                <TextView
+                    android:id="@+id/nationality"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:backgroundTint="#FFF"
+                    android:ems="10"
+                    android:gravity="center_horizontal"
+                    android:text="Nationality"
+                    android:textSize="24dp"
+                    android:textColor="#FFF"
+                    android:layout_marginBottom="40dp"
+                    android:textColorHighlight="#FFF"
+                    android:textColorHint="#ddd" />
+
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"

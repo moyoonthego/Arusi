@@ -182,51 +182,57 @@
                 android:textColor="#FFF"
                 android:textColorHint="#ddd" />
 
-            <LinearLayout
+            <HorizontalScrollView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_gravity="center"
                 android:orientation="horizontal">
 
-                <Button
-                    android:id="@+id/country"
+                <LinearLayout
                     android:layout_width="wrap_content"
-                    android:layout_height="28dp"
-                    android:layout_marginLeft="20dp"
-                    android:layout_marginBottom="25dp"
-                    android:background="@drawable/background_button"
-                    android:backgroundTint="#1f488e"
-                    android:entries="@array/marital_status"
-                    android:text="Country"
-                    android:textColor="#FFF"
-                    android:theme="@style/spinnerTheme" />
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
 
-                <Button
-                    android:id="@+id/state"
-                    android:layout_width="wrap_content"
-                    android:layout_height="28dp"
-                    android:layout_marginLeft="20dp"
-                    android:layout_marginRight="20dp"
-                    android:background="@drawable/background_button"
-                    android:backgroundTint="#1f488e"
-                    android:entries="@array/marital_status"
-                    android:text="State/Region"
-                    android:textColor="#FFF"
-                    android:theme="@style/spinnerTheme" />
+                    <Button
+                        android:id="@+id/country"
+                        android:layout_width="wrap_content"
+                        android:layout_height="28dp"
+                        android:layout_marginLeft="20dp"
+                        android:layout_marginBottom="25dp"
+                        android:background="@drawable/background_button"
+                        android:backgroundTint="#1f488e"
+                        android:entries="@array/marital_status"
+                        android:text="Country"
+                        android:textColor="#FFF"
+                        android:theme="@style/spinnerTheme" />
 
-                <Button
-                    android:id="@+id/city"
-                    android:layout_width="wrap_content"
-                    android:layout_height="28dp"
-                    android:layout_marginRight="20dp"
-                    android:background="@drawable/background_button"
-                    android:backgroundTint="#1f488e"
-                    android:entries="@array/marital_status"
-                    android:text="City"
-                    android:textColor="#FFF"
-                    android:theme="@style/spinnerTheme" />
+                    <Button
+                        android:id="@+id/state"
+                        android:layout_width="wrap_content"
+                        android:layout_height="28dp"
+                        android:layout_marginLeft="20dp"
+                        android:layout_marginRight="20dp"
+                        android:background="@drawable/background_button"
+                        android:backgroundTint="#1f488e"
+                        android:entries="@array/marital_status"
+                        android:text="State/Region"
+                        android:textColor="#FFF"
+                        android:theme="@style/spinnerTheme" />
 
-            </LinearLayout>
+                    <Button
+                        android:id="@+id/city"
+                        android:layout_width="wrap_content"
+                        android:layout_height="28dp"
+                        android:layout_marginRight="20dp"
+                        android:background="@drawable/background_button"
+                        android:backgroundTint="#1f488e"
+                        android:entries="@array/marital_status"
+                        android:text="City"
+                        android:textColor="#FFF"
+                        android:theme="@style/spinnerTheme" />
+
+                </LinearLayout>
+
+            </HorizontalScrollView>
 
             <android.support.design.widget.FloatingActionButton
                 android:id="@+id/fab"

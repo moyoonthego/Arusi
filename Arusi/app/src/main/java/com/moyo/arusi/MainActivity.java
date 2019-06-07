@@ -43,6 +43,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+import androidx.work.Constraints;
+import androidx.work.NetworkType;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkManager;
+import androidx.work.Worker;
+import androidx.work.WorkerParameters;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -58,7 +66,10 @@ public class MainActivity extends AppCompatActivity {
     private FirebaseUser firebaseUser;
     private AlphaAnimation buttonClick = new AlphaAnimation(1F, 0.7F);
     private static ImageView currentpic;
+    private static ImageView matchpic;
     private static Button search;
+
+    boolean check;
 
 
     ListView listView;
@@ -94,12 +105,37 @@ public class MainActivity extends AppCompatActivity {
         Typeface myFont = Typeface.createFromAsset(getAssets(), "fonts/productsansbold.ttf");
         final TextView edittext = (TextView) findViewById(R.id.welcomer);
         edittext.setTypeface(myFont);
+        matchpic = (ImageView) findViewById(R.id.profile_image);
         // Setting up saved data
         currentUserDb = FirebaseDatabase.getInstance().getReference().child("Users").child(firebaseUser.getUid());
         currentUserDb.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
                 edittext.setText("Salaam, "+dataSnapshot.child("name").getValue()+"...");
+                if (dataSnapshot.hasChild("found") && dataSnapshot.child("found").getValue().equals("true")) {
+                    currentpic.setImageResource(R.drawable.startsearching);
+                    matchpic.setVisibility(View.VISIBLE);
+                    currentpic.setVisibility(View.GONE);
+                    matchpic.startAnimation(floating);
+                    search.setText("Start Searching   ");
+                } else if (dataSnapshot.hasChild("searching") && dataSnapshot.child("searching").getValue().equals("true")) {
+                    if (dataSnapshot.hasChild("query")) {
+                        matchpic.setVisibility(View.GONE);
+                        currentpic.setImageResource(R.drawable.searchinprogress);
+                        currentpic.startAnimation(floating);
+                        search.setText("Search in Progress");
+                        search.setCompoundDrawablesWithIntrinsicBounds(0, 0, 0, 0);
+                        search.setBackgroundResource(R.drawable.background_button);
+                        Toast.makeText(MainActivity.this, "Search in progress. This could take hours, please be patient...", Toast.LENGTH_LONG).show();
+                    } else {
+                        matchpic.setVisibility(View.GONE);
+                        Toast.makeText(MainActivity.this, "Please start some Query/Search Parameters before searching for a connection...", Toast.LENGTH_LONG).show();
+                        currentpic.setImageResource(R.drawable.startsearching);
+                        currentUserDb.child("searching").setValue("false");
+                    }
+                }
+
+
             }
 
             @Override
@@ -114,29 +150,25 @@ public class MainActivity extends AppCompatActivity {
         currentpic = findViewById(R.id.mypic);
         currentpic.startAnimation(floating);
         search = findViewById(R.id.buttonSearch);
-        SharedPreferences shared = getSharedPreferences("com.moyo.arusi", MODE_PRIVATE);
-
-        if (shared.getString("buttontitle", "").equals("Search in Progress")) {
-            currentpic.setImageResource(R.drawable.searchinprogress);
-            currentpic.startAnimation(floating);
-            search.setText("Search in Progress");
-            search.setCompoundDrawablesWithIntrinsicBounds(0, 0, 0, 0);
-            search.setBackgroundResource(R.drawable.background_button);
-        }
     }
 
     public void startSearch(View view) {
         view.startAnimation(buttonClick);
-        if (search.getText().equals("Start Searching   ")) {
 
-                currentpic.setImageResource(R.drawable.searchinprogress);
-                currentpic.startAnimation(floating);
-                search.setText("Search in Progress");
-                search.setCompoundDrawablesWithIntrinsicBounds(0, 0, 0, 0);
-                search.setBackgroundResource(R.drawable.background_button);
-                SharedPreferences.Editor editor = getSharedPreferences("com.moyo.arusi", MODE_PRIVATE).edit();
-                editor.putString("buttontitle", String.valueOf(search.getText()));
-                editor.commit();
+        if (search.getText().toString().contains("Start Searching")) {
+            HashMap newdata = new HashMap<String, String>();
+            newdata.put("searching", "true");
+            newdata.put("found", "false");
+            currentUserDb.updateChildren(newdata);
+            Constraints constraints = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
+            OneTimeWorkRequest newreq = new OneTimeWorkRequest.Builder(QueryWorker.class)
+                    .setConstraints(constraints)
+                    .setInitialDelay(5, TimeUnit.SECONDS)
+                    .build();
+            WorkManager.getInstance().enqueue(newreq);
+            QueryWorker.setContext(this);
+            matchpic.setVisibility(view.GONE);
+            currentpic.setVisibility(view.VISIBLE);
         }
     }
 
@@ -161,57 +193,6 @@ public class MainActivity extends AppCompatActivity {
     private String userSex;
     private String oppositeUserSex;
 
-    public void checkUserSex(){
-        final FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-
-        DatabaseReference maleDb = FirebaseDatabase.getInstance().getReference().child("Users").child("Male");
-        maleDb.addChildEventListener(new ChildEventListener() {
-            @Override
-            public void onChildAdded(DataSnapshot dataSnapshot, String s) {
-                if (dataSnapshot.getKey().equals(user.getUid())){
-                    userSex = "Male";
-                    oppositeUserSex = "Female";
-                }
-            }
-            @Override
-            public void onChildChanged(DataSnapshot dataSnapshot, String s) {
-            }
-            @Override
-            public void onChildRemoved(DataSnapshot dataSnapshot) {
-            }
-
-            @Override
-            public void onChildMoved(DataSnapshot dataSnapshot, String s) {
-            }
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
-            }
-        });
-
-        DatabaseReference femaleDb = FirebaseDatabase.getInstance().getReference().child("Users").child("Female");
-        femaleDb.addChildEventListener(new ChildEventListener() {
-            @Override
-            public void onChildAdded(DataSnapshot dataSnapshot, String s) {
-                if (dataSnapshot.getKey().equals(user.getUid())){
-                    userSex = "Female";
-                    oppositeUserSex = "Male";
-                }
-            }
-            @Override
-            public void onChildChanged(DataSnapshot dataSnapshot, String s) {
-            }
-            @Override
-            public void onChildRemoved(DataSnapshot dataSnapshot) {
-            }
-
-            @Override
-            public void onChildMoved(DataSnapshot dataSnapshot, String s) {
-            }
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
-            }
-        });
-    }
 
     public void logoutUser(View view) { ;
         view.startAnimation(buttonClick);
@@ -237,14 +218,24 @@ public class MainActivity extends AppCompatActivity {
                             }
                         });
                 mAuth.signOut();
+                currentUserDb.child("searching").setValue(false);
+                finish();
 
             }
         });
 
         delete.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                Intent intent = new Intent(MainActivity.this, LoginOrRegister.class);
-                startActivity(intent);
+                usersDb.child(mAuth.getUid()).removeValue();
+                mAuth.getCurrentUser().delete()
+                        .addOnCompleteListener(new OnCompleteListener<Void>() {
+                            @Override
+                            public void onComplete(@NonNull Task<Void> task) {
+                                if (task.isSuccessful()) {
+                                    Log.d("TAG", "User account deleted.");
+                                }
+                            }
+                        });
                 // forget last google account signed in with
                 googleSignInClient.signOut()
                         .addOnCompleteListener(MainActivity.this, new OnCompleteListener<Void>() {
@@ -252,9 +243,10 @@ public class MainActivity extends AppCompatActivity {
                             public void onComplete(@NonNull Task<Void> task) {
                             }
                         });
-                usersDb.child(mAuth.getUid()).removeValue();
-                FirebaseAuth.getInstance().getCurrentUser().delete();
                 Toast.makeText(MainActivity.this, "Account successfully deleted.", Toast.LENGTH_SHORT).show();
+                Intent intent = new Intent(MainActivity.this, LoginOrRegister.class);
+                startActivity(intent);
+                finish();
 
             }
         });
@@ -285,6 +277,13 @@ public class MainActivity extends AppCompatActivity {
         // Change MainActivity to "Settings"
         view.startAnimation(buttonClick);
         Intent intent = new Intent(MainActivity.this, QueryActivity.class);
+        startActivity(intent);
+    }
+
+    public void goToNewMatch(View view) {
+        // Change MainActivity to "Settings"
+        view.startAnimation(buttonClick);
+        Intent intent = new Intent(MainActivity.this, YourMatchActivity.class);
         startActivity(intent);
     }
 

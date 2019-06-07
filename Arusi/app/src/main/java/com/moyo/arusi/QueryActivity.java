@@ -5,41 +5,25 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.IntentSender;
-import android.content.pm.PackageManager;
+import android.content.res.AssetFileDescriptor;
 import android.database.Cursor;
 import android.graphics.BitmapFactory;
 import android.graphics.Typeface;
-import android.location.Address;
 import android.location.Criteria;
-import android.location.Geocoder;
-import android.location.Location;
-import android.location.LocationListener;
-import android.location.LocationManager;
+import android.net.ParseException;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
-import android.provider.Settings;
-import android.support.annotation.NonNull;
-import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
-import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.View;
 import android.view.animation.AlphaAnimation;
 import android.widget.ArrayAdapter;
-import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.SeekBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.crystal.crystalrangeseekbar.interfaces.OnRangeSeekbarChangeListener;
 import com.crystal.crystalrangeseekbar.widgets.CrystalRangeSeekbar;
@@ -53,26 +37,81 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 
-import java.io.BufferedReader;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.JSONObject;
+
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.nio.file.Files;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
 import pub.devrel.easypermissions.EasyPermissions;
 
-import static android.app.PendingIntent.getActivity;
-import static android.provider.ContactsContract.CommonDataKinds.Website.URL;
+//public class Country {
+//    private List<State> states;
+//    private String name;
+//
+//    @RequiresApi(api = Build.VERSION_CODES.N)
+//    public Optional<State> getStateByName(final String name) {
+//        return states.stream().filter(new Predicate<State>() {
+//            @Override
+//            public boolean test(State state) {
+//                return state.getName().equals(name);
+//            }
+//        }).findFirst();
+//    }
+//
+//    public String getName() {
+//        return "hi";
+//    }
+//}
+//public class State {
+//    private List<String> cities;
+//    private String name;
+//
+//    @RequiresApi(api = Build.VERSION_CODES.N)
+//    public Optional<String> getCityByName(final String name) {
+//        return cities.stream().filter(new Predicate<String>() {
+//            @Override
+//            public boolean test(String city) {
+//                return city.equals(name);
+//            }
+//        }).findFirst();
+//    }
+//
+//    public String getName () {
+//        return "hi";
+//    }
+//}
+//
+//public class CountryDataProvider  {
+//    private List<Country> countries;
+//
+//    public CountryDataProvider(String rawData) {
+//        // parse your json to create a List of object Country (tip: Use something like Jackson or Gson to do this for you).
+//        // Ref to part 2
+//    }
+//    @RequiresApi(api = Build.VERSION_CODES.N)
+//    public Optional<Country> getCountryByName(final String name) {
+//        return countries.stream().filter(new Predicate<Country>() {
+//            @Override
+//            public boolean test(Country country) {
+//                return country.getName().equals(name);
+//            }
+//        }).findFirst();
+//    }
+//}
+
 
 public class QueryActivity extends AppCompatActivity {
 
@@ -100,6 +139,12 @@ public class QueryActivity extends AppCompatActivity {
     private String country;
     private String state;
     private String city;
+
+    private ArrayList<String> cityitems = new ArrayList<String>();
+    private ArrayList<String> stateitems = new ArrayList<String>();
+    private ArrayList<String> countryitems = new ArrayList<String>();
+
+    private static HashMap mapping;
 
 
     private TextView minage;
@@ -157,7 +202,7 @@ public class QueryActivity extends AppCompatActivity {
         });
 
         // education
-        String[] educationitems = new String[]{"Not specified","College", "University (BSc.)", "University (MSc.)", "University (Phd.)", "Degree", "Self-taught", "Other"};
+        String[] educationitems = new String[]{"Not specified", "College", "University", "University (BSc.)", "University (MSc.)", "University (Phd.)", "Degree", "Self-taught", "Other"};
         final ArrayAdapter<String> educationadapter = new ArrayAdapter<String>(this,
                 android.R.layout.simple_spinner_dropdown_item, educationitems);
         final Button education = (Button) findViewById(R.id.education);
@@ -236,9 +281,11 @@ public class QueryActivity extends AppCompatActivity {
 
 
         //setting up location
+        final Button statestatus = (Button) findViewById(R.id.state);
+        final Button citystatus = (Button) findViewById(R.id.city);
+        final Button countrystatus = (Button) findViewById(R.id.country);
         // country first
         // cast status
-        final ArrayList<String> countryitems =new ArrayList<String>();
         countryitems.add("No selection");
         String[] locales = Locale.getISOCountries();
 
@@ -249,7 +296,6 @@ public class QueryActivity extends AppCompatActivity {
         }
         final ArrayAdapter<String> countryadapter = new ArrayAdapter<String>(this,
                 android.R.layout.simple_spinner_dropdown_item, countryitems);
-        final Button countrystatus = (Button) findViewById(R.id.country);
         countrystatus.setOnClickListener(new View.OnClickListener() {
 
             public void onClick(View w) {
@@ -261,42 +307,51 @@ public class QueryActivity extends AppCompatActivity {
                             public void onClick(DialogInterface dialog, int which) {
 
                                 // TODO: user specific action
+                                // update country
                                 countrystatus.setText(countryadapter.getItem(which));
+                                // clear state,city if present
+                                statestatus.setText("No Selection");
+                                citystatus.setText("No Selection");
+                                city  = "";
+                                state = "";
                                 if (countryadapter.getItem(which).equals("No selection")) {
-                                    newData.put("country", "");
+                                    country = "";
                                 } else {
-                                    newData.put("country", countryadapter.getItem(which));
+                                    country = countryadapter.getItem(which);
                                 }
-                                country = countryadapter.getItem(which);
+
+                                // need to update states
+                                cityitems = new ArrayList<>();
+                                stateitems = new ArrayList<>();
+                                stateitems.add("No Selection");
+                                for (Object state : (ArrayList) mapping.get(country)) {
+                                    stateitems.add((String) ((HashMap) state).get("StateName"));
+                                }
                                 dialog.dismiss();
                             }
                         }).create().show();
             }
         });
 
-//        final Map<String, Object> worldMap = null;
-//
-//        try {
-//            BufferedReader reader = new BufferedReader(new FileReader("C:\\Users\\Moe\\Documents\\GitHub\\Arusi\\Arusi\\app\\src\\main\\assets\\Countries.json"));
-//            String world = reader.readLine();
-//            worldMap = new Gson().fromJson(world, new TypeToken<HashMap<String, Object>>() {}.getType()
-//            );
-//        } catch (FileNotFoundException e) {
-//            e.printStackTrace();
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-
+        // read our file/JSON of all countries/states/cities
+        JSONObject totalworld = null;
+        JSONParser parser = new JSONParser();
+        if (mapping == null) {
+            try {
+                totalworld = (JSONObject) parser.parse(new InputStreamReader(this.getAssets().open("Countries.json")));
+                mapping = (HashMap) jsonToMap(totalworld);
+            } catch (IOException | ParseException | JSONException | org.json.simple.parser.ParseException e) {
+                e.printStackTrace();
+                Log.e(TAG, e.toString()+"!!!!!!");
+                e.printStackTrace();
+            }
+        }
         // state second
-        final ArrayList<String> stateitems =new ArrayList<String>();
         stateitems.add("No selection");
-        final Button statestatus = (Button) findViewById(R.id.state);
         statestatus.setOnClickListener(new View.OnClickListener() {
 
             public void onClick(View w) {
 
-                // UNFINISHED
-                //stateitems.addAll();
                 final ArrayAdapter<String> stateadapter = new ArrayAdapter<String>(QueryActivity.this, android.R.layout.simple_spinner_dropdown_item, stateitems);
 
                 new AlertDialog.Builder(QueryActivity.this)
@@ -308,12 +363,25 @@ public class QueryActivity extends AppCompatActivity {
 
                                 // TODO: user specific action
                                 statestatus.setText(stateadapter.getItem(which));
+                                citystatus.setText("No Selection");
                                 if (stateadapter.getItem(which).equals("No selection")) {
-                                    newData.put("state", "");
+                                    city = "";
+                                    state = "";
                                 } else {
-                                    newData.put("state", stateadapter.getItem(which));
+                                    state = stateadapter.getItem(which);
+                                    city = "";
                                 }
                                 state = stateadapter.getItem(which);
+
+                                // need to update cities
+                                cityitems = new ArrayList<>();
+                                cityitems.add("No Selection");
+                                for (Object curstate : (ArrayList) mapping.get(country)) {
+                                    if (((HashMap) curstate).get("StateName").equals(state)) {
+                                        cityitems.addAll((ArrayList) ((HashMap) curstate).get("Cities"));
+                                        break;
+                                    }
+                                }
                                 dialog.dismiss();
                             }
                         }).create().show();
@@ -321,34 +389,82 @@ public class QueryActivity extends AppCompatActivity {
         });
 
 
+        // city third
+        cityitems.add("No selection");
+        citystatus.setOnClickListener(new View.OnClickListener() {
+
+            public void onClick(View w) {
+
+                final ArrayAdapter<String> cityadapter = new ArrayAdapter<String>(QueryActivity.this, android.R.layout.simple_spinner_dropdown_item, cityitems);
+
+                new AlertDialog.Builder(QueryActivity.this)
+                        .setTitle("Select a desired city...")
+                        .setAdapter(cityadapter, new DialogInterface.OnClickListener() {
+
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+
+                                // TODO: user specific action
+                                citystatus.setText(cityadapter.getItem(which));
+                                if (cityadapter.getItem(which).equals("No selection")) {
+                                    city = "";
+                                } else {
+                                    city = cityadapter.getItem(which);
+                                }
+
+                                dialog.dismiss();
+                            }
+                        }).create().show();
+            }
+        });
 
 
         // Setting up saved data
         currentUserDb.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
-                        for (DataSnapshot querySnapshot : dataSnapshot.getChildren()) {
-                            if (!(String.valueOf(querySnapshot.getValue()).equals(""))) {
-                                if (querySnapshot.getKey().equals("marital")) {
-                                    maritalstatus.setText(String.valueOf(querySnapshot.getValue()));
-                                } else if (querySnapshot.getKey().equals("education")) {
-                                    education.setText(String.valueOf(querySnapshot.getValue()));
-                                } else if (querySnapshot.getKey().equals("country")) {
-                                    countrystatus.setText(String.valueOf(querySnapshot.getValue()));
-                                } else if (querySnapshot.getKey().equals("cast")) {
-                                    caststatus.setText(String.valueOf(querySnapshot.getValue()));
-                                } else if (querySnapshot.getKey().equals("minage")) {
-                                    minage.setText(String.valueOf(querySnapshot.getValue()));
-                                } else if (querySnapshot.getKey().equals("maxage")) {
-                                    maxage.setText(String.valueOf(querySnapshot.getValue()));
-                                    agebar.setMaxStartValue(Integer.valueOf(String.valueOf(querySnapshot.getValue())));
-                                } else if (querySnapshot.getKey().equals("profession")) {
-                                    ((EditText) findViewById(R.id.profession)).setText(String.valueOf(querySnapshot.getValue()));
-                                } else if (querySnapshot.getKey().equals("nationality")) {
-                                    ((EditText) findViewById(R.id.nationality)).setText(String.valueOf(querySnapshot.getValue()));
+                for (DataSnapshot querySnapshot : dataSnapshot.getChildren()) {
+                    if (!(String.valueOf(querySnapshot.getValue()).equals(""))) {
+                        if (querySnapshot.getKey().equals("marital")) {
+                            maritalstatus.setText(String.valueOf(querySnapshot.getValue()));
+                        } else if (querySnapshot.getKey().equals("education")) {
+                            education.setText(String.valueOf(querySnapshot.getValue()));
+                        } else if (querySnapshot.getKey().equals("country")) {
+                            countrystatus.setText(String.valueOf(querySnapshot.getValue()));
+                            country = String.valueOf(querySnapshot.getValue());
+                            if (!country.equals("") && (mapping != null)) {
+                                for (Object state : (ArrayList) mapping.get(country)) {
+                                    stateitems.add((String) ((HashMap) state).get("StateName"));
                                 }
                             }
+                        } else if (querySnapshot.getKey().equals("state")) {
+                            statestatus.setText(String.valueOf(querySnapshot.getValue()));
+                            state = String.valueOf(querySnapshot.getValue());
+                            if (!state.equals("") && (mapping != null)) {
+                                for (Object curstate : (ArrayList) mapping.get(country)) {
+                                    if (((HashMap) curstate).get("StateName").equals(state)) {
+                                        cityitems.addAll((ArrayList) ((HashMap) curstate).get("Cities"));
+                                        break;
+                                    }
+                                }
+                            }
+                        } else if (querySnapshot.getKey().equals("city")) {
+                            citystatus.setText(String.valueOf(querySnapshot.getValue()));
+                            city = String.valueOf(querySnapshot.getValue());
+                        } else if (querySnapshot.getKey().equals("cast")) {
+                            caststatus.setText(String.valueOf(querySnapshot.getValue()));
+                        } else if (querySnapshot.getKey().equals("minage")) {
+                            minage.setText(String.valueOf(querySnapshot.getValue()));
+                        } else if (querySnapshot.getKey().equals("maxage")) {
+                            maxage.setText(String.valueOf(querySnapshot.getValue()));
+                            agebar.setMaxStartValue(Integer.valueOf(String.valueOf(querySnapshot.getValue())));
+                        } else if (querySnapshot.getKey().equals("profession")) {
+                            ((EditText) findViewById(R.id.profession)).setText(String.valueOf(querySnapshot.getValue()));
+                        } else if (querySnapshot.getKey().equals("nationality")) {
+                            ((EditText) findViewById(R.id.nationality)).setText(String.valueOf(querySnapshot.getValue()));
                         }
+                    }
+                }
             }
 
             @Override
@@ -379,13 +495,13 @@ public class QueryActivity extends AppCompatActivity {
         newData.put("nationality", String.valueOf(((EditText) findViewById(R.id.nationality)).getText()));
         newData.put("minage", Integer.valueOf(String.valueOf(minage.getText())));
         newData.put("maxage", Integer.valueOf(String.valueOf(maxage.getText())));
+        newData.put("city", city);
+        newData.put("state", state);
+        newData.put("country", country);
         currentUserDb.updateChildren(newData);
         Intent intent = new Intent(QueryActivity.this, MainActivity.class);
         startActivity(intent);
         finish();
-    }
-
-    private void fillCountries() {
     }
 
     @Override
@@ -418,6 +534,50 @@ public class QueryActivity extends AppCompatActivity {
 
             }
         }
+    }
 
+    public static Map<String, Object> jsonToMap(JSONObject json) throws JSONException {
+        Map<String, Object> retMap = new HashMap<String, Object>();
+
+        if(json != null) {
+            retMap = toMap(json);
+        }
+        return retMap;
+    }
+
+    public static Map<String, Object> toMap(JSONObject object) throws JSONException {
+        Map<String, Object> map = new HashMap<String, Object>();
+
+        Iterator keysItr = object.keySet().iterator();
+        while(keysItr.hasNext()) {
+            String key = (String) keysItr.next();
+            Object value = object.get(key);
+
+            if(value instanceof JSONArray) {
+                value = toList((JSONArray) value);
+            }
+
+            else if(value instanceof JSONObject) {
+                value = toMap((JSONObject) value);
+            }
+            map.put(key, value);
+        }
+        return map;
+    }
+
+    public static List<Object> toList(JSONArray array) throws JSONException {
+        List<Object> list = new ArrayList<Object>();
+        for(int i = 0; i < array.length(); i++) {
+            Object value = array.get(i);
+            if(value instanceof JSONArray) {
+                value = toList((JSONArray) value);
+            }
+
+            else if(value instanceof JSONObject) {
+                value = toMap((JSONObject) value);
+            }
+            list.add(value);
+        }
+        return list;
     }
 }

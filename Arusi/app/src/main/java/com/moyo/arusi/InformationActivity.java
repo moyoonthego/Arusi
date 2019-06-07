@@ -8,9 +8,11 @@ import android.content.Intent;
 import android.content.IntentSender;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.BitmapDrawable;
 import android.location.Address;
 import android.location.Criteria;
 import android.location.Geocoder;
@@ -38,9 +40,12 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.bumptech.glide.Glide;
+import com.firebase.ui.storage.images.FirebaseImageLoader;
 import com.google.android.gms.auth.api.Auth;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInClient;
@@ -58,6 +63,8 @@ import com.google.android.gms.location.LocationSettingsResponse;
 import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -66,10 +73,18 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
+import com.google.firebase.storage.UploadTask;
 
 import org.w3c.dom.Text;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
@@ -109,6 +124,8 @@ public class InformationActivity extends AppCompatActivity implements LocationLi
     private Map newData;
     private Location mylocation;
     private ValueEventListener checking;
+    private StorageReference profilepath;
+    private FirebaseStorage storage;
 
     @SuppressLint("MissingPermission")
     @Override
@@ -305,8 +322,10 @@ public class InformationActivity extends AppCompatActivity implements LocationLi
                                 EasyPermissions.requestPermissions(InformationActivity.this, "Storage access required. Try again.",
                                         101, galleryPermissions);
                             } else {
-                                pic.setImageBitmap(BitmapFactory.decodeFile(String.valueOf(postSnapshot.getValue())));
-                                picview.setImageBitmap(BitmapFactory.decodeFile(String.valueOf(postSnapshot.getValue())));
+                                //pic.setImageBitmap(BitmapFactory.decodeFile(String.valueOf(postSnapshot.getValue())));
+                                //picview.setImageBitmap(BitmapFactory.decodeFile(String.valueOf(postSnapshot.getValue())));
+                                GlideApp.with(InformationActivity.this).load(profilepath).into(pic);
+                                GlideApp.with(InformationActivity.this).load(profilepath).into(picview);
                             }
                         }
                     }
@@ -322,6 +341,10 @@ public class InformationActivity extends AppCompatActivity implements LocationLi
 
         // Setting up saved data
         currentUserDb.addValueEventListener(checking);
+
+        // getting picture
+        storage = FirebaseStorage.getInstance();
+        profilepath= storage.getReference().child("Users").child(firebaseUser.getUid());
 
     }
 
@@ -426,8 +449,8 @@ public class InformationActivity extends AppCompatActivity implements LocationLi
         newData.put("mothertongue", String.valueOf(((EditText) findViewById(R.id.mothertongue)).getText()));
         newData.put("complexion", String.valueOf(((EditText) findViewById(R.id.complexion)).getText()));
         newData.put("familyinfo", String.valueOf(((EditText) findViewById(R.id.familyinfo)).getText()));
-        currentUserDb.removeEventListener(checking);
         currentUserDb.updateChildren(newData);
+        currentUserDb.removeEventListener(checking);
         if (newData.get("name").equals("") || newData.get("lastname").equals("") || newData.get("age").equals("")
         || newData.get("profession").equals("") || newData.get("phone").equals("") || newData.get("contactemail").equals("")
                 || newData.get("nationality").equals("") || newData.get("location").equals("Location")
@@ -471,6 +494,8 @@ public class InformationActivity extends AppCompatActivity implements LocationLi
                 EasyPermissions.requestPermissions(this, "Storage access required. Try again.",
                         101, galleryPermissions);
             } else {
+                final ProgressBar pBar = (ProgressBar) findViewById(R.id.progress_circular1);
+                pBar.setVisibility(View.VISIBLE);
 
                 Uri selectedImage = data.getData();
                 String[] filePathColumn = {MediaStore.Images.Media.DATA};
@@ -485,7 +510,33 @@ public class InformationActivity extends AppCompatActivity implements LocationLi
 
                 ImageView imageView = (ImageView) findViewById(R.id.profile_image);
                 imageView.setImageBitmap(BitmapFactory.decodeFile(picturePath));
-                newData.put("photo", picturePath);
+
+
+                // upload the picture to server next
+                InputStream stream = null;
+                try {
+                    stream = new FileInputStream(new File(picturePath));
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                }
+                UploadTask uploadTask = profilepath.putStream(stream);
+                uploadTask.addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception exception) {
+                        // Handle unsuccessful uploads
+                        Toast.makeText(InformationActivity.this, "Error processing photo", Toast.LENGTH_SHORT).show();
+                    }
+                }).addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
+                    @Override
+                    public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
+                        // taskSnapshot.getMetadata() contains file metadata such as size, content-type, etc.
+                        // ...
+                        pBar.setVisibility(View.GONE);
+                        Toast.makeText(InformationActivity.this, "Photo successfully updated!", Toast.LENGTH_SHORT).show();
+                        String pathway = String.valueOf(profilepath.getDownloadUrl());
+                        newData.put("photo", firebaseUser.getUid());
+                    }
+                });
 
             }
         }
