@@ -1,5 +1,6 @@
 package com.moyo.arusi;
 
+import android.support.annotation.NonNull;
 import android.util.Log;
 import android.widget.EditText;
 
@@ -12,6 +13,7 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -25,21 +27,75 @@ public class SearchPair {
     private static ValueEventListener checking;
     private static ValueEventListener querying;
     private static Map newData = new HashMap<>();
-    private static Map queryData = new HashMap<>();
+    public static Map queryData = new HashMap<>();
 
     public static int match_val = 0;
-    public static String match_uid;
+    public static String match_uid = "";
+    public static String nGender;
 
     public static void setupSearching() {
+    }
+
+    public static void startSearching() {
+        UsersDb = FirebaseDatabase.getInstance().getReference().child("Users");
+        // start doing the match up
+
         mAuth = FirebaseAuth.getInstance();
         currentUser = FirebaseDatabase.getInstance().getReference().child("Users").child(mAuth.getUid()).child("query");
+
+        // all this just to get gender...
+        final DatabaseReference currentUserInfo = FirebaseDatabase.getInstance().getReference().child("Users").child(mAuth.getUid());
+        currentUserInfo.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                nGender = String.valueOf(dataSnapshot.child("gender").getValue());
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+
+            }
+        });
+
+        final ArrayList blacklistarray = new ArrayList();
+        final ArrayList whitelistarray = new ArrayList();
+
+        // all of this just to get blacklisted matches(perhaps firebase isnt that great... use mongodb next time)
+        currentUserInfo.child("blacklist").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                for (DataSnapshot blacklistSnapshot : dataSnapshot.getChildren()) {
+                    blacklistarray.add(blacklistSnapshot.getKey().toString());
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+
+            }
+        });
+
+        // all of this just to get whitelisted matches(perhaps firebase isnt that great... use mongodb next time)
+        currentUserInfo.child("whitelist").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                for (DataSnapshot whitelistSnapshot : dataSnapshot.getChildren()) {
+                    whitelistarray.add(whitelistSnapshot.getKey().toString());
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+
+            }
+        });
 
         // storing the current users query in our own custom map (to use for searches later)
         querying = new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
                 for (DataSnapshot querySnapshot : dataSnapshot.getChildren()) {
-                    queryData.put(querySnapshot.toString(), querySnapshot.getValue());
+                    queryData.put(querySnapshot.getKey().toString(), querySnapshot.getValue());
                 }
             }
 
@@ -50,24 +106,21 @@ public class SearchPair {
             }
         };
 
-        currentUser.addValueEventListener(querying);
-        Log.d("TAG", "THIS DONE FIRST");
-    }
+        currentUser.addListenerForSingleValueEvent(querying);
 
-    public static void startSearching() {
-        mAuth = FirebaseAuth.getInstance();
-        UsersDb = FirebaseDatabase.getInstance().getReference().child("Users");
-
-        // start doing the match up
         checking = new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
-                Log.d("TAG", dataSnapshot.toString());
+                Log.d("USER DATABASE", dataSnapshot.toString());
                 for (DataSnapshot userSnapshot : dataSnapshot.getChildren()) {
                     int cur_match_val = 0;
-                    Log.d("TAG", userSnapshot.toString());
-                    // looping thru all users, checking to make sure user isn't pairing with self
-                    if (!(String.valueOf(userSnapshot.toString()).equals(mAuth.getUid()))) {
+                    Log.d("FOUND USER", userSnapshot.toString());
+                    // looping thru all users, checking to make sure user isn't pairing with self, and not with opposite gender either
+                    if (!(userSnapshot.getKey().trim().toLowerCase()).equals(mAuth.getUid().toLowerCase().trim()) &&
+                            !(userSnapshot.child("gender").getValue().equals(nGender)) &&
+                            !(blacklistarray.contains(userSnapshot.getKey().toString())) &&
+                            !(whitelistarray.contains(userSnapshot.getKey().toString()))) { // also make sure this user wasn't neglected (swiped left or already matched)
+                        Log.d("FOUND USER (MATCH): ", userSnapshot.getKey()+"*********"+blacklistarray.contains(userSnapshot.getKey()));
                         for (DataSnapshot userInfoSnapshot : userSnapshot.getChildren()) {
                             // now to check user against query and add value to our variables
                             // check age query
@@ -135,12 +188,20 @@ public class SearchPair {
                                 }
                             }
                         }
-                        if (cur_match_val > match_val) {
+                        if (cur_match_val >= match_val) {
                             match_val = cur_match_val;
-                            match_uid = String.valueOf(userSnapshot.toString());
+                            match_uid = String.valueOf(userSnapshot.getKey());
                         }
                     }
                 }
+
+                newData.put("match",match_uid);
+                newData.put("found","true");
+                newData.put("searching","false");
+                UsersDb.child(mAuth.getUid()).updateChildren(newData);
+                Log.d("TAG", "~~~~~~~~~~~~~~~FINISHED SEARCHING~~~~~~~~~~~~:"+match_uid);
+                match_val = 0;
+                match_uid = "";
             }
 
             @Override
@@ -150,17 +211,10 @@ public class SearchPair {
             }
         };
 
-        UsersDb.addValueEventListener(checking);
-
-        newData.put("match",match_uid);
-        newData.put("found","true");
-        newData.put("searching","false");
-        UsersDb.child(mAuth.getUid()).updateChildren(newData);
-        Log.d("TAG", match_uid.toString());
+        UsersDb.addListenerForSingleValueEvent(checking);
     }
 
     public static void stopSearching() {
         UsersDb.removeEventListener(checking);
-        Log.d("TAG", "~~~~~~~~~~~~~~~FINISHED SEARCHING~~~~~~~~~~~~");
     }
 }

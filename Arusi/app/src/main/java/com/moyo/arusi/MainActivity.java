@@ -37,6 +37,9 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageException;
+import com.google.firebase.storage.StorageReference;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -44,10 +47,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicMarkableReference;
 
 import androidx.work.Constraints;
+import androidx.work.ExistingPeriodicWorkPolicy;
 import androidx.work.NetworkType;
 import androidx.work.OneTimeWorkRequest;
+import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
@@ -59,6 +65,7 @@ public class MainActivity extends AppCompatActivity {
     public  Animation floating;
     private FirebaseOptions options;
 
+    private static String arusitag = "checkformatchesforarusi";
     private String currentUId;
 
     private DatabaseReference usersDb;
@@ -69,10 +76,6 @@ public class MainActivity extends AppCompatActivity {
     private static ImageView matchpic;
     private static Button search;
 
-    boolean check;
-
-
-    ListView listView;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -106,6 +109,23 @@ public class MainActivity extends AppCompatActivity {
         final TextView edittext = (TextView) findViewById(R.id.welcomer);
         edittext.setTypeface(myFont);
         matchpic = (ImageView) findViewById(R.id.profile_image);
+
+        // constant check for matches
+        // finally, enable constant check for matches (work)
+        Constraints newconstraints = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
+        MatchWorker.setContext(this);
+        PeriodicWorkRequest matchcheck = new PeriodicWorkRequest.Builder(MatchWorker.class, 60, TimeUnit.MINUTES)
+                .setConstraints(newconstraints)
+                .build();
+        WorkManager.getInstance().enqueueUniquePeriodicWork(arusitag, ExistingPeriodicWorkPolicy.KEEP, matchcheck);
+        Log.d("TAG", "match checking enqueued");
+
+        // Continued...
+        floating = AnimationUtils.loadAnimation(this, R.anim.floating);
+        currentpic = findViewById(R.id.currentpic);
+        currentpic.startAnimation(floating);
+        search = findViewById(R.id.buttonSearch);
+
         // Setting up saved data
         currentUserDb = FirebaseDatabase.getInstance().getReference().child("Users").child(firebaseUser.getUid());
         currentUserDb.addValueEventListener(new ValueEventListener() {
@@ -115,19 +135,33 @@ public class MainActivity extends AppCompatActivity {
                 if (dataSnapshot.hasChild("found") && dataSnapshot.child("found").getValue().equals("true")) {
                     currentpic.setImageResource(R.drawable.startsearching);
                     matchpic.setVisibility(View.VISIBLE);
-                    currentpic.setVisibility(View.GONE);
                     matchpic.startAnimation(floating);
-                    search.setText("Start Searching   ");
+                    search.setVisibility(View.GONE);
+                    currentpic.setVisibility(View.INVISIBLE);
+                    currentpic.setVisibility(View.GONE);
+                    String matchname = String.valueOf(dataSnapshot.child("match").getValue());
+                    if (!matchname.equals("") && !usersDb.child(matchname).child("photo").equals("")) {
+                        FirebaseStorage storage = FirebaseStorage.getInstance();
+                        try {
+                            StorageReference curitem = storage.getReference().child("Users").child(String.valueOf(dataSnapshot.child("match").getValue()));
+                            GlideApp.with(MainActivity.this).load(curitem).into(matchpic);
+                        } catch (Throwable e) {
+                            // they didnt have a picture
+                            Log.e("TAG", "User didn't have a photo!");
+                        }
+                    }
                 } else if (dataSnapshot.hasChild("searching") && dataSnapshot.child("searching").getValue().equals("true")) {
                     if (dataSnapshot.hasChild("query")) {
                         matchpic.setVisibility(View.GONE);
+                        search.setVisibility(View.VISIBLE);
                         currentpic.setImageResource(R.drawable.searchinprogress);
                         currentpic.startAnimation(floating);
                         search.setText("Search in Progress");
                         search.setCompoundDrawablesWithIntrinsicBounds(0, 0, 0, 0);
                         search.setBackgroundResource(R.drawable.background_button);
-                        Toast.makeText(MainActivity.this, "Search in progress. This could take hours, please be patient...", Toast.LENGTH_LONG).show();
+                        Toast.makeText(MainActivity.this, "Search in progress. This could take hours. We will notify you when ready.", Toast.LENGTH_LONG).show();
                     } else {
+                        search.setVisibility(View.VISIBLE);
                         matchpic.setVisibility(View.GONE);
                         Toast.makeText(MainActivity.this, "Please start some Query/Search Parameters before searching for a connection...", Toast.LENGTH_LONG).show();
                         currentpic.setImageResource(R.drawable.startsearching);
@@ -144,12 +178,6 @@ public class MainActivity extends AppCompatActivity {
                 Log.e("TAG", "Failed to read app title value.", error.toException());
             }
         });
-
-        // Continued...
-        floating = AnimationUtils.loadAnimation(this, R.anim.floating);
-        currentpic = findViewById(R.id.mypic);
-        currentpic.startAnimation(floating);
-        search = findViewById(R.id.buttonSearch);
     }
 
     public void startSearch(View view) {
@@ -163,36 +191,21 @@ public class MainActivity extends AppCompatActivity {
             Constraints constraints = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
             OneTimeWorkRequest newreq = new OneTimeWorkRequest.Builder(QueryWorker.class)
                     .setConstraints(constraints)
-                    .setInitialDelay(5, TimeUnit.SECONDS)
+                    .setInitialDelay(2, TimeUnit.HOURS)
                     .build();
             WorkManager.getInstance().enqueue(newreq);
             QueryWorker.setContext(this);
             matchpic.setVisibility(view.GONE);
             currentpic.setVisibility(view.VISIBLE);
+
+            Log.d("TAG", "WorkManager called and tasks commenced");
         }
     }
 
-    private void isConnectionMatch(String userId) {
-        DatabaseReference currentUserConnectionsDb = usersDb.child(userSex).child(currentUId).child("connections").child("yeps").child(userId);
-        currentUserConnectionsDb.addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                if (dataSnapshot.exists()){
-                    Toast.makeText(MainActivity.this, "new Connection", Toast.LENGTH_LONG).show();
-                    usersDb.child(oppositeUserSex).child(dataSnapshot.getKey()).child("connections").child("matches").child(currentUId).setValue(true);
-                    usersDb.child(userSex).child(currentUId).child("connections").child("matches").child(dataSnapshot.getKey()).setValue(true);
-                }
-            }
-
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
-            }
-        });
+    public void stopstartsearchAnim() {
+        currentpic.setVisibility(View.INVISIBLE);
+        currentpic.setVisibility(View.GONE);
     }
-
-    private String userSex;
-    private String oppositeUserSex;
-
 
     public void logoutUser(View view) { ;
         view.startAnimation(buttonClick);
@@ -200,6 +213,8 @@ public class MainActivity extends AppCompatActivity {
         View promptView = layoutInflater.inflate(R.layout.popup, null);
 
         final AlertDialog alertD = new AlertDialog.Builder(this).create();
+        alertD.setView(promptView);
+        alertD.show();
 
         Button exit = (Button) promptView.findViewById(R.id.buttonExit);
 
@@ -217,8 +232,10 @@ public class MainActivity extends AppCompatActivity {
                             public void onComplete(@NonNull Task<Void> task) {
                             }
                         });
+                currentUserDb.child("blacklist").setValue(null);
                 mAuth.signOut();
                 currentUserDb.child("searching").setValue(false);
+                alertD.dismiss();
                 finish();
 
             }
@@ -246,22 +263,17 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(MainActivity.this, "Account successfully deleted.", Toast.LENGTH_SHORT).show();
                 Intent intent = new Intent(MainActivity.this, LoginOrRegister.class);
                 startActivity(intent);
+                alertD.dismiss();
                 finish();
 
             }
         });
-
-        alertD.setView(promptView);
-
-        alertD.show();
-
     }
 
     public void goToSettings(View view) {
         // Change MainActivity to "Settings"
         view.startAnimation(buttonClick);
         Intent intent = new Intent(MainActivity.this, MainActivity.class);
-        intent.putExtra("userSex", userSex);
         startActivity(intent);
     }
 
@@ -269,7 +281,6 @@ public class MainActivity extends AppCompatActivity {
         // Change MainActivity to "Settings"
         view.startAnimation(buttonClick);
         Intent intent = new Intent(MainActivity.this, InformationActivity.class);
-        intent.putExtra("userSex", userSex);
         startActivity(intent);
     }
 
@@ -282,7 +293,6 @@ public class MainActivity extends AppCompatActivity {
 
     public void goToNewMatch(View view) {
         // Change MainActivity to "Settings"
-        view.startAnimation(buttonClick);
         Intent intent = new Intent(MainActivity.this, YourMatchActivity.class);
         startActivity(intent);
     }

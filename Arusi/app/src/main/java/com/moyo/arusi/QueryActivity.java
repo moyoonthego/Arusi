@@ -24,6 +24,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.crystal.crystalrangeseekbar.interfaces.OnRangeSeekbarChangeListener;
 import com.crystal.crystalrangeseekbar.widgets.CrystalRangeSeekbar;
@@ -500,6 +501,7 @@ public class QueryActivity extends AppCompatActivity {
         newData.put("country", country);
         currentUserDb.updateChildren(newData);
         Intent intent = new Intent(QueryActivity.this, MainActivity.class);
+        Toast.makeText(QueryActivity.this, "Query saved.", Toast.LENGTH_LONG).show();
         startActivity(intent);
         finish();
     }

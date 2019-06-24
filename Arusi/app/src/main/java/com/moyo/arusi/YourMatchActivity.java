@@ -40,6 +40,7 @@ import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -55,11 +56,15 @@ public class YourMatchActivity extends AppCompatActivity {
     private String currentUId;
     private FirebaseUser firebaseUser;
     private DatabaseReference currentUserMatch;
-    private static Map oldData;
+    private static Map seenData = new HashMap();
     private static Map newdata = new HashMap();
+    private static Map ourInfo = new HashMap();
+    private static Map matchInfo = new HashMap();
     private DatabaseReference matchDb = null;
     private DatabaseReference currentUser = null;
     private FirebaseStorage storage;
+    private String ourMatch;
+    private String matchesMatch;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -101,7 +106,6 @@ public class YourMatchActivity extends AppCompatActivity {
             }
         });
 
-
         picview.setOnClickListener(new View.OnClickListener() {
 
             @Override
@@ -114,6 +118,7 @@ public class YourMatchActivity extends AppCompatActivity {
         });
 
         storage = FirebaseStorage.getInstance();
+        final ArrayList whitelistarray = new ArrayList();
 
         // Setting up saved data
         final ValueEventListener matchinfo = new ValueEventListener() {
@@ -149,10 +154,25 @@ public class YourMatchActivity extends AppCompatActivity {
                             ((Button) findViewById(R.id.muslim_cast)).setText(String.valueOf(postSnapshot.getValue()));
                         } else if (postSnapshot.getKey().equals("name")) {
                             ((TextView) findViewById(R.id.fName)).setText(String.valueOf(postSnapshot.getValue()));
+                            matchInfo.put("name", String.valueOf(postSnapshot.getValue()));
                         } else if (postSnapshot.getKey().equals("photo")) {
                             StorageReference curitem = storage.getReference().child("Users").child(String.valueOf(postSnapshot.getValue()));
-                            GlideApp.with(YourMatchActivity.this).load(curitem).into(pic);
-                            GlideApp.with(YourMatchActivity.this).load(curitem).into(picview);
+                            try {
+                                GlideApp.with(YourMatchActivity.this).load(curitem).into(pic);
+                                GlideApp.with(YourMatchActivity.this).load(curitem).into(picview);
+                            } catch (Throwable e) {
+                                Log.e("TAG", "GlideApp causing issues for YourMatchActivity");
+                            }
+                        } else if (postSnapshot.getKey().equals("match")) { // here, we get the match of this persons match (ie, to check if they like each other)
+                            matchesMatch = postSnapshot.getValue().toString();
+                        } else if (postSnapshot.getKey().equals("whitelist") && postSnapshot.getChildrenCount() != 0) { // here, we get everyone they liked
+                            for (DataSnapshot userSnapshot : postSnapshot.getChildren()) {
+                                whitelistarray.add(userSnapshot.getKey().toString());
+                            }
+                        } else if (postSnapshot.getKey().equals("contactemail")) {
+                            matchInfo.put("email", String.valueOf(postSnapshot.getValue()));
+                        } else if (postSnapshot.getKey().equals("phone")) {
+                            matchInfo.put("phone", String.valueOf(postSnapshot.getValue()));
                         }
                     }
                 }
@@ -165,12 +185,23 @@ public class YourMatchActivity extends AppCompatActivity {
             }
         };
 
-        // Setting up saved data
-        currentUserMatch.addValueEventListener(new ValueEventListener() {
+        // Setting up saved data (all of this nonsense just to get the match's info)
+        currentUserMatch.getParent().addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
-                    matchDb = FirebaseDatabase.getInstance().getReference().child("Users").child(String.valueOf(dataSnapshot.getValue()));
-                    matchDb.addValueEventListener(matchinfo);
+                for (DataSnapshot postSnapshot : dataSnapshot.getChildren()) {
+                    if (postSnapshot.getKey().equals("phone")) {
+                        ourInfo.put("phone", String.valueOf(postSnapshot.getValue()));
+                    } else if (postSnapshot.getKey().equals("contactemail")) {
+                        ourInfo.put("email", String.valueOf(postSnapshot.getValue()));
+                    } else if (postSnapshot.getKey().equals("name")) {
+                        ourInfo.put("name", String.valueOf(postSnapshot.getValue()));
+                    } else if (postSnapshot.getKey().equals("match")) {
+                        matchDb = FirebaseDatabase.getInstance().getReference().child("Users").child(String.valueOf(postSnapshot.getValue()));
+                        ourMatch = String.valueOf(postSnapshot.getValue());
+                        matchDb.addValueEventListener(matchinfo);
+                    }
+                }
             }
 
             @Override
@@ -200,11 +231,49 @@ public class YourMatchActivity extends AppCompatActivity {
                                 // removing match
                                 newdata.put("searching", "false");
                                 newdata.put("found", "false");
+                                seenData.put(matchDb.getKey().toString(), "");
                                 currentUser.updateChildren(newdata);
                                 matchDb.removeEventListener(matchinfo);
-                                Intent intent = new Intent(YourMatchActivity.this, MainActivity.class);
-                                startActivity(intent);
-                                finish();
+                                currentUser.child("viewnewmatch").setValue(false);
+                                currentUser.child("whitelist").updateChildren(seenData);
+                                final Intent intent = new Intent(YourMatchActivity.this, MainActivity.class);
+
+                                // If they both like each other do this next stuff
+                                if (whitelistarray.contains(firebaseUser.getUid())) {
+                                    // Mutual Match Yay!
+                                    // add them to our matchbox
+                                    currentUser.child("matches").child(ourMatch).updateChildren(matchInfo);
+
+                                    // add us to theirs
+                                    matchDb.child("matches").child(firebaseUser.getUid()).updateChildren(ourInfo);
+
+                                    // send notification to other user!
+                                    matchDb.child("notifymatch").setValue(true);
+
+                                    final DialogInterface.OnClickListener exit = new DialogInterface.OnClickListener() {
+                                        public void onClick(DialogInterface dialog, int which) {
+                                            currentUser.updateChildren(newdata);
+                                            // exit to main
+                                            startActivity(intent);
+                                            finish();
+                                        }
+                                    };
+
+                                    final AlertDialog alertD = new AlertDialog.Builder(YourMatchActivity.this)
+                                            .setTitle("Mutual Interest Found!")
+                                            .setMessage("Congratulations! Check your Matchbox for this users contact info! We wish you luck in your next steps...")
+                                            .setPositiveButton(android.R.string.ok, exit)
+                                            .show();
+
+                                } else {
+                                    // Oh man they didn't like you, or didn't like you yet
+                                    if (matchDb.getParent() != null) {
+                                        matchDb.child("match").setValue(firebaseUser.getUid());
+                                        matchDb.child("viewnewmatch").setValue(true);
+                                        startActivity(intent);
+                                        finish();
+                                    }
+                                }
 
                             }
                         })
@@ -232,7 +301,11 @@ public class YourMatchActivity extends AppCompatActivity {
                                 // removing match
                                 newdata.put("searching", "false");
                                 newdata.put("found", "false");
+                                newdata.put("match", "");
+                                seenData.put(matchDb.getKey().toString(), "");
                                 currentUser.updateChildren(newdata);
+                                currentUser.child("blacklist").updateChildren(seenData);
+                                currentUser.child("viewnewmatch").setValue(false);
                                 matchDb.removeEventListener(matchinfo);
                                 Intent intent = new Intent(YourMatchActivity.this, MainActivity.class);
                                 startActivity(intent);

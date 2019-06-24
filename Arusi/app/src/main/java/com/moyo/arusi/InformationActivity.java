@@ -45,6 +45,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.signature.ObjectKey;
 import com.firebase.ui.storage.images.FirebaseImageLoader;
 import com.google.android.gms.auth.api.Auth;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
@@ -74,6 +75,7 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.OnProgressListener;
 import com.google.firebase.storage.StorageReference;
 import com.google.firebase.storage.UploadTask;
 
@@ -124,8 +126,10 @@ public class InformationActivity extends AppCompatActivity implements LocationLi
     private Map newData;
     private Location mylocation;
     private ValueEventListener checking;
-    private StorageReference profilepath;
+    private static StorageReference profilepath;
     private FirebaseStorage storage;
+    private ImageView pic;
+    private ImageView picview;
 
     @SuppressLint("MissingPermission")
     @Override
@@ -249,8 +253,8 @@ public class InformationActivity extends AppCompatActivity implements LocationLi
 
 
         // Setting up image view
-        final ImageView pic = (ImageView) findViewById(R.id.profile_image);
-        final ImageView picview = (ImageView) findViewById(R.id.profileimageview);
+        pic = (ImageView) findViewById(R.id.profile_image);
+        picview = (ImageView) findViewById(R.id.profileimageview);
         picview.setImageDrawable(pic.getDrawable());
         pic.setOnClickListener(new View.OnClickListener() {
 
@@ -275,6 +279,10 @@ public class InformationActivity extends AppCompatActivity implements LocationLi
                 pic.setVisibility(View.VISIBLE);
             }
         });
+
+        // getting picture
+        storage = FirebaseStorage.getInstance();
+        profilepath = storage.getReference().child("Users").child(firebaseUser.getUid());
 
         checking = new ValueEventListener() {
             @Override
@@ -324,8 +332,8 @@ public class InformationActivity extends AppCompatActivity implements LocationLi
                             } else {
                                 //pic.setImageBitmap(BitmapFactory.decodeFile(String.valueOf(postSnapshot.getValue())));
                                 //picview.setImageBitmap(BitmapFactory.decodeFile(String.valueOf(postSnapshot.getValue())));
-                                GlideApp.with(InformationActivity.this).load(profilepath).into(pic);
-                                GlideApp.with(InformationActivity.this).load(profilepath).into(picview);
+                                GlideApp.with(InformationActivity.this).load(profilepath).signature(new ObjectKey(String.valueOf(System.currentTimeMillis()))).into(pic);
+                                GlideApp.with(InformationActivity.this).load(profilepath).signature(new ObjectKey(String.valueOf(System.currentTimeMillis()))).into(picview);
                             }
                         }
                     }
@@ -341,10 +349,6 @@ public class InformationActivity extends AppCompatActivity implements LocationLi
 
         // Setting up saved data
         currentUserDb.addValueEventListener(checking);
-
-        // getting picture
-        storage = FirebaseStorage.getInstance();
-        profilepath= storage.getReference().child("Users").child(firebaseUser.getUid());
 
     }
 
@@ -450,6 +454,8 @@ public class InformationActivity extends AppCompatActivity implements LocationLi
         newData.put("complexion", String.valueOf(((EditText) findViewById(R.id.complexion)).getText()));
         newData.put("familyinfo", String.valueOf(((EditText) findViewById(R.id.familyinfo)).getText()));
         currentUserDb.updateChildren(newData);
+        currentUserDb.child("notifymatch").setValue(false);
+        currentUserDb.child("viewnewmatch").setValue(false);
         currentUserDb.removeEventListener(checking);
         if (newData.get("name").equals("") || newData.get("lastname").equals("") || newData.get("age").equals("")
         || newData.get("profession").equals("") || newData.get("phone").equals("") || newData.get("contactemail").equals("")
@@ -477,6 +483,7 @@ public class InformationActivity extends AppCompatActivity implements LocationLi
         }
 
         Intent intent = new Intent(InformationActivity.this, MainActivity.class);
+        Toast.makeText(InformationActivity.this, "Information saved.", Toast.LENGTH_LONG).show();
         startActivity(intent);
         finish();
 
@@ -507,36 +514,39 @@ public class InformationActivity extends AppCompatActivity implements LocationLi
                 int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
                 String picturePath = cursor.getString(columnIndex);
                 cursor.close();
+                Uri file = Uri.fromFile(new File(picturePath));
 
-                ImageView imageView = (ImageView) findViewById(R.id.profile_image);
-                imageView.setImageBitmap(BitmapFactory.decodeFile(picturePath));
-
-
-                // upload the picture to server next
-                InputStream stream = null;
-                try {
-                    stream = new FileInputStream(new File(picturePath));
-                } catch (FileNotFoundException e) {
-                    e.printStackTrace();
-                }
-                UploadTask uploadTask = profilepath.putStream(stream);
+                UploadTask uploadTask = profilepath.putFile(file);
                 uploadTask.addOnFailureListener(new OnFailureListener() {
                     @Override
                     public void onFailure(@NonNull Exception exception) {
                         // Handle unsuccessful uploads
                         Toast.makeText(InformationActivity.this, "Error processing photo", Toast.LENGTH_SHORT).show();
                     }
-                }).addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
+                });
+                uploadTask.addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
                     @Override
                     public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
                         // taskSnapshot.getMetadata() contains file metadata such as size, content-type, etc.
                         // ...
                         pBar.setVisibility(View.GONE);
-                        Toast.makeText(InformationActivity.this, "Photo successfully updated!", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(InformationActivity.this, "Photo successfully uploaded! It may take time to update...", Toast.LENGTH_SHORT).show();
                         String pathway = String.valueOf(profilepath.getDownloadUrl());
-                        newData.put("photo", firebaseUser.getUid());
+                        newData.put("photo", firebaseUser.getUid().toString());
                     }
                 });
+                uploadTask.addOnProgressListener(new OnProgressListener<UploadTask.TaskSnapshot>() {
+                    @Override
+                    public void onProgress(UploadTask.TaskSnapshot taskSnapshot) {
+                        double progress = (100.0 * taskSnapshot.getBytesTransferred()) / taskSnapshot.getTotalByteCount();
+                        Log.d("TAG", "Upload is " + progress + "% done");
+                        int currentprogress = (int) progress;
+                        Toast.makeText(InformationActivity.this, "Photo uploading: "+ currentprogress + "%", Toast.LENGTH_SHORT).show();
+                    }
+                });
+
+                GlideApp.with(InformationActivity.this).load(profilepath).signature(new ObjectKey(String.valueOf(System.currentTimeMillis()))).into(pic);
+                GlideApp.with(InformationActivity.this).load(profilepath).signature(new ObjectKey(String.valueOf(System.currentTimeMillis()))).into(picview);
 
             }
         }
